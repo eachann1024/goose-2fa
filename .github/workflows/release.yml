@@ -18,16 +18,12 @@ jobs:
         include:
           - platform: macos-latest
             args: '--target aarch64-apple-darwin'
-            label: macos-aarch64
           - platform: macos-latest
             args: '--target x86_64-apple-darwin'
-            label: macos-x86_64
           - platform: windows-latest
             args: ''
-            label: windows
           - platform: ubuntu-22.04
             args: ''
-            label: linux
 
     runs-on: ${{ matrix.platform }}
     permissions:
@@ -38,6 +34,11 @@ jobs:
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
 
       - name: Add macOS targets
         if: matrix.platform == 'macos-latest'
@@ -60,7 +61,10 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install frontend dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
+
+      - name: Build frontend
+        run: bun run --bun vite build -c vite.config.tauri.ts
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
