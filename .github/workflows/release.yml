@@ -62,11 +62,22 @@ jobs:
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build Tauri app
+      - name: Build frontend
+        run: bunx vite build -c vite.config.tauri.ts
+
+      - name: Clear beforeBuildCommand
         shell: bash
         run: |
-          export PATH="$PWD/node_modules/.bin:$PATH"
-          bunx tauri build ${{ matrix.args }}
+          cd src-tauri
+          node -e "
+            const fs = require('fs');
+            const conf = JSON.parse(fs.readFileSync('tauri.conf.json', 'utf8'));
+            delete conf.build.beforeBuildCommand;
+            fs.writeFileSync('tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
+          "
+
+      - name: Build Tauri app
+        run: bunx tauri build ${{ matrix.args }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
