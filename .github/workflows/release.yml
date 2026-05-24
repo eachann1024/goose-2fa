@@ -62,11 +62,11 @@ jobs:
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
 
-      - name: Add node_modules/.bin to PATH
-        run: echo "${{ github.workspace }}/node_modules/.bin" >> $GITHUB_PATH
-
       - name: Build Tauri app
-        run: bunx tauri build ${{ matrix.args }}
+        shell: bash
+        run: |
+          export PATH="$PWD/node_modules/.bin:$PATH"
+          bunx tauri build ${{ matrix.args }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
