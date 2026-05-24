@@ -1,0 +1,23 @@
+node_modules
+dist
+*.local
+.DS_Store
+*.tsbuildinfo
+
+# 平台构建输出
+dist-utools/
+dist-tauri/
+src-tauri/target/
+
+# AI / 协作资产
+.claude/
+.agents/
+AGENTS.md
+CLAUDE.md
+SKILL.md
+
+# 产品文档 / 任务
+PRODUCT.md
+tasks/
+test-results/
+pnpm-lock.yaml

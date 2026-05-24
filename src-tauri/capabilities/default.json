@@ -1,0 +1,14 @@
+{
+  "identifier": "default",
+  "description": "默认权限",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "clipboard-manager:allow-write-text",
+    "clipboard-manager:allow-read-text",
+    "dialog:allow-save",
+    "dialog:allow-open",
+    "notification:default",
+    "fs:default"
+  ]
+}
