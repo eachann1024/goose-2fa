@@ -18,12 +18,16 @@ jobs:
         include:
           - platform: macos-latest
             args: '--target aarch64-apple-darwin'
+            label: macos-aarch64
           - platform: macos-latest
             args: '--target x86_64-apple-darwin'
+            label: macos-x86_64
           - platform: windows-latest
             args: ''
+            label: windows
           - platform: ubuntu-22.04
             args: ''
+            label: linux
 
     runs-on: ${{ matrix.platform }}
     permissions:
@@ -58,17 +62,16 @@ jobs:
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build frontend
-        run: bunx vite build -c vite.config.tauri.ts
-
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+        run: bunx tauri build ${{ matrix.args }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PATH: ${{ github.workspace }}/node_modules/.bin:${{ env.PATH }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Goose 2FA ${{ github.ref_name }}'
-          releaseBody: 'See the assets below to download the installer for your platform.'
-          releaseDraft: true
-          prerelease: false
-          args: ${{ matrix.args }}
+          name: goose-2fa-${{ matrix.label }}
+          path: |
+            src-tauri/target/release/bundle/
+            src-tauri/target/*/release/bundle/
+          if-no-files-found: warn
