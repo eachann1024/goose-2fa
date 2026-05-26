@@ -1,9 +1,10 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react";
 import { ArrowLeft, Check, Copy, Trash2, MapPin, Clock, Globe, Monitor, Tag, Pencil } from "lucide-react";
 import { useOtpCode } from "@/hooks/useOtpCode";
 import { formatCode } from "@/lib/otp";
 import type { AccountData } from "@/lib/types";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AccountDetailProps {
   account: AccountData;
@@ -11,6 +12,7 @@ interface AccountDetailProps {
   onDelete: (id: string) => void;
   onCopy: (text: string) => void;
   onUpdateNote: (id: string, note: string) => void;
+  onUpdateRemark: (id: string, remark: string) => void;
 }
 
 const DAY_NAMES = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
@@ -28,14 +30,19 @@ function formatLocation(lat: number, lng: number): string {
   return `${Math.abs(lat).toFixed(4)}° ${latDir}, ${Math.abs(lng).toFixed(4)}° ${lngDir}`;
 }
 
-export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote }: AccountDetailProps) {
+export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote, onUpdateRemark }: AccountDetailProps) {
   const { code, remaining, period } = useOtpCode(account);
   const [copied, setCopied] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [editingNote, setEditingNote] = useState(false);
-  const [noteValue, setNoteValue] = useState(account.note ?? "");
+  const [noteValue, setNoteValue] = useState("");
+  const [editingRemark, setEditingRemark] = useState(false);
+  const [remarkValue, setRemarkValue] = useState(account.remark ?? "");
   const [barReady, setBarReady] = useState(false);
+  const [nameOverflow, setNameOverflow] = useState(false);
   const noteInputRef = useRef<HTMLInputElement>(null);
+  const remarkInputRef = useRef<HTMLInputElement>(null);
+  const nameSpanRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => requestAnimationFrame(() => setBarReady(true)));
@@ -46,15 +53,30 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
   const isLow = isTotp && remaining <= 5;
   const progress = isTotp ? remaining / period : 1;
 
-  const displayName = account.note
-    || (account.issuer ? `${account.issuer} (${account.name})` : account.name);
-
   const originalName = account.originalName
     || (account.issuer ? `${account.issuer} (${account.name})` : account.name);
 
+  const displayName = account.note || originalName;
+
+  useLayoutEffect(() => {
+    const el = nameSpanRef.current;
+    if (!el) return;
+    setNameOverflow(el.scrollWidth > el.clientWidth + 1);
+  }, [displayName]);
+
   useEffect(() => {
-    if (editingNote) noteInputRef.current?.focus();
+    if (editingNote) {
+      const el = noteInputRef.current;
+      if (el) {
+        el.focus();
+        el.select();
+      }
+    }
   }, [editingNote]);
+
+  useEffect(() => {
+    if (editingRemark) remarkInputRef.current?.focus();
+  }, [editingRemark]);
 
   const handleCopy = useCallback(() => {
     onCopy(code);
@@ -70,26 +92,51 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
     onDelete(account.id);
   }, [confirmingDelete, account.id, onDelete]);
 
+  const handleStartEditName = useCallback(() => {
+    setNoteValue(displayName);
+    setEditingNote(true);
+  }, [displayName]);
+
   const handleNoteSave = useCallback(() => {
     const trimmed = noteValue.trim();
-    onUpdateNote(account.id, trimmed);
+    // 空 / 与原始名相同 → 清空 note 恢复默认
+    const next = (!trimmed || trimmed === originalName) ? "" : trimmed;
+    if (next !== (account.note ?? "")) {
+      onUpdateNote(account.id, next);
+    }
     setEditingNote(false);
-  }, [noteValue, account.id, onUpdateNote]);
+  }, [noteValue, account.id, account.note, originalName, onUpdateNote]);
 
   const handleNoteKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter") handleNoteSave();
     if (e.key === "Escape") {
-      setNoteValue(account.note ?? "");
       setEditingNote(false);
     }
-  }, [handleNoteSave, account.note]);
+  }, [handleNoteSave]);
+
+  const handleRemarkSave = useCallback(() => {
+    const trimmed = remarkValue.trim();
+    if (trimmed !== (account.remark ?? "")) {
+      onUpdateRemark(account.id, trimmed);
+    }
+    setEditingRemark(false);
+  }, [remarkValue, account.id, account.remark, onUpdateRemark]);
+
+  const handleRemarkKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === "Enter") handleRemarkSave();
+    if (e.key === "Escape") {
+      setRemarkValue(account.remark ?? "");
+      setEditingRemark(false);
+    }
+  }, [handleRemarkSave, account.remark]);
 
   const meta = account.meta;
 
   const metaItems: { icon: React.ReactNode; label: string; value: string }[] = [];
 
-  if (originalName !== displayName || account.note) {
+  if (originalName !== displayName) {
     metaItems.push({
       icon: <Tag size={13} />,
       label: "原始名称",
@@ -127,7 +174,10 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
     });
   }
 
+  const remark = account.remark ?? "";
+
   return (
+    <TooltipProvider delay={200}>
     <div className="flex min-h-screen flex-col bg-bg px-5 pb-6 pt-4">
       {/* 顶栏 */}
       <div className="mb-6 flex items-center gap-2">
@@ -143,7 +193,7 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
         </span>
       </div>
 
-      {/* 备注名称（可编辑） */}
+      {/* 名称（可编辑） + 备注 */}
       <div className="mb-5">
         {editingNote ? (
           <Input
@@ -159,15 +209,60 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
           />
         ) : (
           <button
-            onClick={() => { setNoteValue(account.note ?? ""); setEditingNote(true); }}
-            className="group flex h-[44px] w-full items-center gap-2 rounded-cell border border-transparent px-3.5 text-left"
+            onClick={handleStartEditName}
+            className="group flex h-[44px] w-full min-w-0 items-center gap-2 rounded-cell border border-transparent px-3.5 text-left"
           >
-            <span className="text-[18px] font-semibold leading-none text-fg">
-              {displayName}
-            </span>
+            {nameOverflow ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span
+                      ref={nameSpanRef}
+                      className="min-w-0 flex-1 truncate text-[18px] font-semibold leading-none text-fg"
+                    >
+                      {displayName}
+                    </span>
+                  }
+                />
+                <TooltipContent>{displayName}</TooltipContent>
+              </Tooltip>
+            ) : (
+              <span
+                ref={nameSpanRef}
+                className="min-w-0 flex-1 truncate text-[18px] font-semibold leading-none text-fg"
+              >
+                {displayName}
+              </span>
+            )}
             <Pencil size={13} className="shrink-0 text-fg-faint opacity-0 transition-opacity group-hover:opacity-100" />
           </button>
         )}
+
+        {/* 备注行 */}
+        <div className="mt-2">
+          {editingRemark ? (
+            <Input
+              ref={remarkInputRef}
+              type="text"
+              value={remarkValue}
+              onChange={(e) => setRemarkValue(e.target.value)}
+              onBlur={handleRemarkSave}
+              onKeyDown={handleRemarkKeyDown}
+              placeholder="添加备注"
+              className="h-[32px] px-3.5 py-0 text-[12.5px] leading-none"
+            />
+          ) : (
+            <button
+              onClick={() => { setRemarkValue(remark); setEditingRemark(true); }}
+              className="group flex h-[32px] w-full items-center gap-2 rounded-cell border border-transparent px-3.5 text-left"
+            >
+              <span className={`min-w-0 flex-1 truncate text-[12.5px] leading-none ${remark ? "text-fg-muted" : "text-fg-faint"}`}>
+                {remark || "添加备注"}
+              </span>
+              <Pencil size={11} className="shrink-0 text-fg-faint opacity-0 transition-opacity group-hover:opacity-100" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 验证码区 */}
@@ -272,5 +367,6 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
         )}
       </div>
     </div>
+    </TooltipProvider>
   );
 }

@@ -25,6 +25,7 @@ export interface AccountData {
   meta?: AccountMeta;
   originalName?: string;
   note?: string;
+  remark?: string;
   deletedAt?: number;
 }
 
