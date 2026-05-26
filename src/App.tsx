@@ -29,6 +29,7 @@ export default function App() {
   const permanentlyDelete = useAccounts((s) => s.permanentlyDelete);
   const emptyTrash = useAccounts((s) => s.emptyTrash);
   const updateNote = useAccounts((s) => s.updateNote);
+  const updateRemark = useAccounts((s) => s.updateRemark);
   const incrementCounter = useAccounts((s) => s.incrementCounter);
   const setSearchQuery = useAccounts((s) => s.setSearchQuery);
   const setShowAddForm = useAccounts((s) => s.setShowAddForm);
@@ -202,6 +203,7 @@ export default function App() {
             onDelete={handleDeleteFromDetail}
             onCopy={handleDetailCopy}
             onUpdateNote={updateNote}
+            onUpdateRemark={updateRemark}
           />
         </div>
       ) : (

@@ -28,6 +28,7 @@ interface AccountsState {
   permanentlyDelete: (id: string) => void;
   emptyTrash: () => void;
   updateNote: (id: string, note: string) => void;
+  updateRemark: (id: string, remark: string) => void;
   incrementCounter: (id: string) => void;
   setSearchQuery: (query: string) => void;
   setShowAddForm: (show: boolean) => void;
@@ -151,6 +152,14 @@ export const useAccounts = create<AccountsState>((set, get) => ({
   updateNote: (id, note) => {
     const next = get().accounts.map((a) =>
       a.id === id ? { ...a, note } : a,
+    );
+    persist(next);
+    set({ accounts: next });
+  },
+
+  updateRemark: (id, remark) => {
+    const next = get().accounts.map((a) =>
+      a.id === id ? { ...a, remark } : a,
     );
     persist(next);
     set({ accounts: next });

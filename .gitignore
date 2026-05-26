@@ -8,13 +8,8 @@ dist
 dist-utools/
 dist-tauri/
 src-tauri/target/
+!CLAUDE.md
 
-# AI / 协作资产
-.claude/
-.agents/
-AGENTS.md
-CLAUDE.md
-SKILL.md
 
 # 产品文档 / 任务
 PRODUCT.md
