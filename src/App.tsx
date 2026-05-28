@@ -7,7 +7,9 @@ import { AddAccount } from "@/components/AddAccount";
 import { DataTransfer } from "@/components/DataTransfer";
 import { TrashBin } from "@/components/TrashBin";
 import { AccountDetail } from "@/components/AccountDetail";
+import { QuickCode } from "@/components/QuickCode";
 import type { AccountData } from "@/lib/types";
+import type { PluginEnterDetail } from "@/platform/types";
 
 type FlipState = "idle" | "opening" | "open" | "closing";
 
@@ -42,6 +44,8 @@ export default function App() {
   const [addFormAction, setAddFormAction] = useState<"clipboard" | "capture" | undefined>();
   const [detailAccount, setDetailAccount] = useState<AccountData | null>(null);
   const [flipState, setFlipState] = useState<FlipState>("idle");
+  const [quickMode, setQuickMode] = useState(false);
+  const [quickQuery, setQuickQuery] = useState("");
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
@@ -74,9 +78,32 @@ export default function App() {
   }, [syncSystemDark]);
 
   useEffect(() => {
-    const handler = () => load();
-    window.addEventListener("goose-2fa:plugin-enter", handler);
-    return () => window.removeEventListener("goose-2fa:plugin-enter", handler);
+    const handleEnter = (e: Event) => {
+      const detail = (e as CustomEvent<PluginEnterDetail>).detail;
+      load();
+      const code = detail?.code;
+      if (code === "quick") {
+        // 带参数的快速粘贴：剥离前缀后剩下的字符串作为初始 query
+        const raw = (detail?.payload ?? "").trim();
+        const query = raw.replace(/^(2fa|otp|验证码)\s+/i, "").trim();
+        setQuickQuery(query);
+        setQuickMode(true);
+      } else if (code === "2fa") {
+        // 单关键字（2FA / OTP / 验证码 / 二步验证）→ 直接看账户列表
+        setQuickQuery("");
+        setQuickMode(true);
+      } else {
+        // code === "manage" 或 uTools detached window → 主 UI
+        setQuickMode(false);
+      }
+    };
+    const handleOut = () => setQuickMode(false);
+    window.addEventListener("goose-2fa:plugin-enter", handleEnter);
+    window.addEventListener("goose-2fa:plugin-out", handleOut);
+    return () => {
+      window.removeEventListener("goose-2fa:plugin-enter", handleEnter);
+      window.removeEventListener("goose-2fa:plugin-out", handleOut);
+    };
   }, [load]);
 
   const handleCopy = (_text: string) => {};
@@ -110,6 +137,16 @@ export default function App() {
       setDetailAccount(null);
     }, 700);
   }, [removeAccount]);
+
+  if (quickMode) {
+    return (
+      <QuickCode
+        accounts={accounts}
+        initialQuery={quickQuery}
+        onIncrement={incrementCounter}
+      />
+    );
+  }
 
   if (showTrash) {
     return (
