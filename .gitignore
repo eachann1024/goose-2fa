@@ -13,6 +13,7 @@ src-tauri/target/
 
 # 产品文档 / 任务
 PRODUCT.md
+CHANGELOG.md
 tasks/
 test-results/
 pnpm-lock.yaml
