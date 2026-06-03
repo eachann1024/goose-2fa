@@ -210,7 +210,7 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
         >
           <ArrowLeft size={17} />
         </button>
-        <h2 className="flex-1 text-[15px] font-semibold tracking-tight text-fg">
+        <h2 className="flex-1 text-[15px] font-serif font-semibold tracking-tight text-fg">
           添加账户
         </h2>
       </div>

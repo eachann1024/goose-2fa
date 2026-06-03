@@ -188,7 +188,7 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
         >
           <ArrowLeft size={17} />
         </button>
-        <span className="text-[15px] font-semibold tracking-tight text-fg">
+        <span className="text-[15px] font-serif font-semibold tracking-tight text-fg">
           账户详情
         </span>
       </div>
