@@ -78,7 +78,7 @@ export function Header({
         </InputGroup>
       ) : (
         <>
-          <h1 className="flex-1 text-[15px] font-semibold tracking-tight text-fg">
+          <h1 className="flex-1 text-[15px] font-serif font-semibold tracking-tight text-fg">
             验证码
           </h1>
           {hasAccounts && (

@@ -110,7 +110,7 @@ export function DataTransfer({ accounts, onImport, onCancel }: DataTransferProps
           >
             <ArrowLeft size={17} />
           </button>
-          <h2 className="flex-1 text-[15px] font-semibold tracking-tight text-fg">
+          <h2 className="flex-1 text-[15px] font-serif font-semibold tracking-tight text-fg">
             确认导入
           </h2>
         </div>
@@ -207,7 +207,7 @@ export function DataTransfer({ accounts, onImport, onCancel }: DataTransferProps
         >
           <ArrowLeft size={17} />
         </button>
-        <h2 className="flex-1 text-[15px] font-semibold tracking-tight text-fg">
+        <h2 className="flex-1 text-[15px] font-serif font-semibold tracking-tight text-fg">
           数据管理
         </h2>
       </div>

@@ -58,7 +58,7 @@ export function TrashBin({ trash, onRestore, onPermanentDelete, onEmptyTrash, on
         >
           <ArrowLeft size={17} />
         </button>
-        <h1 className="flex-1 text-[15px] font-semibold tracking-tight text-fg">
+        <h1 className="flex-1 text-[15px] font-serif font-semibold tracking-tight text-fg">
           回收站
         </h1>
         {trash.length > 0 && (
