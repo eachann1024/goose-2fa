@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@heroui/styles";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
@@ -502,5 +503,36 @@
     --sidebar-accent-foreground: oklch(0.92 0.008 70);
     --sidebar-border: oklch(0.255 0.012 55);
     --sidebar-ring: oklch(0.68 0.15 42);
+  }
+}
+
+/* ── HeroUI v3 主题映射 ──────────────────────────────────────────
+ * HeroUI v3 把 --accent 当作主色/焦点色。这里把它映射为项目的珊瑚橙
+ * （与 --color-accent 一致）。放在文件末尾以覆盖 shadcn 把 --accent
+ * 当作浅粉背景的定义；shadcn 的 --accent 仅供未被任何组件使用的
+ * shadcn-accent 工具类读取，覆盖它不影响现有 UI。
+ * 业务组件用的 border-accent/text-accent 走 --color-accent，不受影响。
+ */
+:root {
+  --accent: #d96533;
+  --accent-foreground: #fdf9f7;
+}
+
+.dark,
+[data-theme="dark"] {
+  --accent: #e37547;
+  --accent-foreground: #fdf9f7;
+}
+
+@supports (color: oklch(0 0 0)) {
+  :root {
+    --accent: oklch(0.64 0.16 42);
+    --accent-foreground: oklch(0.985 0.005 65);
+  }
+
+  .dark,
+  [data-theme="dark"] {
+    --accent: oklch(0.68 0.15 42);
+    --accent-foreground: oklch(0.985 0.005 65);
   }
 }
