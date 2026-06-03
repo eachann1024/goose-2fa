@@ -1,5 +1,7 @@
 import { defineConfig, mergeConfig } from "vite";
 import baseConfig from "./vite.config";
+import { debugMinify, debugSourcemapTauri } from "./vite.debug";
+import { codeSplittingGroups } from "./vite.chunks";
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -29,11 +31,21 @@ export default mergeConfig(baseConfig, {
   build: {
     outDir: "dist-tauri",
     target: ["es2021", "chrome100", "safari15"],
+    // GOOSE_DEBUG=1 → true（独立 .map，sources 指向 src/）；正式 → false（不产出 .map）
+    sourcemap: debugSourcemapTauri,
+    // GOOSE_DEBUG=1 → false（不压缩，WebKit Inspector 直读源码）；正式 → 默认压缩
+    minify: debugMinify,
     rollupOptions: {
       output: {
-        chunkFileNames: "chunks/[name].js",
+        chunkFileNames: "chunks/[name]-[hash].js",
         entryFileNames: "assets/[name].js",
         assetFileNames: "assets/[name][extname]",
+      },
+    },
+    // Vite 8 底层是 rolldown：分包必须走 rolldown 原生 codeSplitting
+    rolldownOptions: {
+      output: {
+        codeSplitting: { groups: codeSplittingGroups },
       },
     },
     chunkSizeWarningLimit: 1000,

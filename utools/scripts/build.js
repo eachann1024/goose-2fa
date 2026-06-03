@@ -51,9 +51,19 @@ try {
       }
     }
   }
-  removeMapFiles(distDir);
 
-  console.log(`\n✓ uTools 构建完成 → ${path.relative(rootDir, distDir)}/`);
+  // GOOSE_DEBUG=1：保留 .map，让 uTools 开发者工具能映射回 src/ 源码；
+  // 正式发布：删除 .map，避免分发包体积膨胀与源码暴露。
+  const isDebugBuild = process.env.GOOSE_DEBUG === "1";
+  if (isDebugBuild) {
+    console.log("\n⚙ GOOSE_DEBUG=1：保留 sourcemap(.map)，跳过 removeMapFiles()");
+  } else {
+    removeMapFiles(distDir);
+  }
+
+  console.log(
+    `\n✓ uTools ${isDebugBuild ? "可调试" : ""}构建完成 → ${path.relative(rootDir, distDir)}/`,
+  );
 } catch (e) {
   console.error(e);
   process.exit(1);
