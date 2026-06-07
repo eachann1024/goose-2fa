@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { arrayMove } from "@dnd-kit/sortable";
 import type { AccountData, NewAccountInput } from "@/lib/types";
 import type { PlatformAdapter } from "@/platform/types";
 
@@ -6,6 +7,14 @@ let platform: PlatformAdapter;
 
 export function initPlatform(adapter: PlatformAdapter) {
   platform = adapter;
+}
+
+export type ViewMode = "grid" | "list";
+
+const VIEW_MODE_KEY = "goose-2fa-view";
+
+function loadViewMode(): ViewMode {
+  return localStorage.getItem(VIEW_MODE_KEY) === "list" ? "list" : "grid";
 }
 
 interface AccountsState {
@@ -18,9 +27,12 @@ interface AccountsState {
   isDark: boolean;
   isThemeLocked: boolean;
   editMode: boolean;
+  viewMode: ViewMode;
 
   load: () => Promise<void>;
   save: (accounts: AccountData[]) => void;
+  setViewMode: (mode: ViewMode) => void;
+  reorderAccounts: (activeId: string, overId: string) => void;
   addAccount: (input: NewAccountInput) => void;
   importAccounts: (inputs: NewAccountInput[]) => void;
   removeAccount: (id: string) => void;
@@ -76,6 +88,7 @@ export const useAccounts = create<AccountsState>((set, get) => ({
     : window.matchMedia("(prefers-color-scheme: dark)").matches,
   isThemeLocked: localStorage.getItem("goose-2fa-dark") !== null,
   editMode: false,
+  viewMode: loadViewMode(),
 
   load: async () => {
     const trash = loadTrashFromStorage();
@@ -89,6 +102,22 @@ export const useAccounts = create<AccountsState>((set, get) => ({
   save: (accounts) => {
     persist(accounts);
     set({ accounts });
+  },
+
+  setViewMode: (mode) => {
+    localStorage.setItem(VIEW_MODE_KEY, mode);
+    set({ viewMode: mode });
+  },
+
+  reorderAccounts: (activeId, overId) => {
+    if (activeId === overId) return;
+    const current = get().accounts;
+    const from = current.findIndex((a) => a.id === activeId);
+    const to = current.findIndex((a) => a.id === overId);
+    if (from === -1 || to === -1) return;
+    const next = arrayMove(current, from, to);
+    persist(next);
+    set({ accounts: next });
   },
 
   addAccount: (input) => {
