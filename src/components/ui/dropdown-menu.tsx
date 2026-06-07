@@ -1,6 +1,8 @@
 import * as React from "react"
-import { Dropdown as HeroDropdown } from "@heroui/react"
-import { Separator as SeparatorPrimitive } from "react-aria-components/Separator"
+import {
+  Dropdown as HeroDropdown,
+  Separator as HeroSeparator,
+} from "@heroui/react"
 import { Header as MenuHeaderPrimitive } from "react-aria-components/Menu"
 import { ChevronRightIcon, CheckIcon } from "lucide-react"
 
@@ -16,7 +18,7 @@ import { cn } from "@/lib/utils"
  *   DropdownMenuTrigger → Dropdown.Trigger(react-aria Button)
  *   DropdownMenuContent → Dropdown.Popover > Dropdown.Menu(react-aria 是 collection)
  *   DropdownMenuItem    → Dropdown.Item;item 的 onClick 映射为 react-aria 的 onAction
- *   DropdownMenuSeparator → react-aria Separator(保留 collection 语义)
+ *   DropdownMenuSeparator → @heroui/react Separator(与 Menu 同一 collection 实例)
  *   align="end"/side    → Popover 的 placement
  * 珊瑚橙 token、圆角、阴影等视觉保持不变。
  */
@@ -324,9 +326,15 @@ function DropdownMenuRadioItem({
 function DropdownMenuSeparator({
   className,
   ...props
-}: React.ComponentProps<typeof SeparatorPrimitive>) {
+}: React.ComponentProps<typeof HeroSeparator>) {
+  // 必须用 @heroui/react 暴露的 Separator(HeroUI 自己的 SeparatorRoot 包装层),
+  // 不能直接从 "react-aria-components/Separator" 子路径 import。子路径那份与 HeroUI
+  // Dropdown/Menu 内部使用的 react-aria collection 入口不配对(运行时 ===
+  // 比较为 false),会被 Menu 的 collection 解析器当成未知节点,连同其后所有兄弟项
+  // 一起从 collection 里截断,导致 separator 之后的菜单项不渲染。
+  // 规则:此 wrapper 内 Menu 的子节点一律走 HeroUI 同族组件,勿混用 RAC 子路径组件。
   return (
-    <SeparatorPrimitive
+    <HeroSeparator
       data-slot="dropdown-menu-separator"
       className={cn("-mx-1 my-1 h-px bg-border", className)}
       {...props}

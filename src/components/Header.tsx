@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, Plus, X, MoreHorizontal, Moon, Sun, ArrowDownUp, Trash2, Lock, LockOpen } from "lucide-react";
+import { Search, Plus, X, MoreHorizontal, Moon, Sun, ArrowDownUp, Trash2, Lock, LockOpen, LayoutGrid, List } from "lucide-react";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupButton } from "@/components/ui/input-group";
+import type { ViewMode } from "@/stores/useAccounts";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +14,8 @@ interface HeaderProps {
   hasAccounts: boolean;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  viewMode: ViewMode;
+  onToggleView: () => void;
   onAdd: () => void;
   onManageData: () => void;
   onTrash: () => void;
@@ -27,6 +30,8 @@ export function Header({
   hasAccounts,
   searchQuery,
   onSearchChange,
+  viewMode,
+  onToggleView,
   onAdd,
   onManageData,
   onTrash,
@@ -42,6 +47,12 @@ export function Header({
   useEffect(() => {
     if (searching) inputRef.current?.focus();
   }, [searching]);
+
+  // 外部灌入搜索词（如 uTools quick 进入带关键字）时自动展开搜索框，
+  // 让用户看到当前过滤条件、也能一键清除。
+  useEffect(() => {
+    if (searchQuery) setSearching(true);
+  }, [searchQuery]);
 
   const handleSearchToggle = () => {
     if (searching) {
@@ -82,13 +93,23 @@ export function Header({
             验证码
           </h1>
           {hasAccounts && (
-            <button
-              onClick={handleSearchToggle}
-              className="rounded-lg p-2 text-fg-muted transition-colors hover:bg-surface hover:text-fg"
-              aria-label="搜索"
-            >
-              <Search size={17} />
-            </button>
+            <>
+              <button
+                onClick={onToggleView}
+                className="rounded-lg p-2 text-fg-muted transition-colors hover:bg-surface hover:text-fg"
+                aria-label={viewMode === "grid" ? "切换为列表视图" : "切换为网格视图"}
+                title={viewMode === "grid" ? "列表视图" : "网格视图"}
+              >
+                {viewMode === "grid" ? <List size={17} /> : <LayoutGrid size={17} />}
+              </button>
+              <button
+                onClick={handleSearchToggle}
+                className="rounded-lg p-2 text-fg-muted transition-colors hover:bg-surface hover:text-fg"
+                aria-label="搜索"
+              >
+                <Search size={17} />
+              </button>
+            </>
           )}
         </>
       )}
@@ -121,18 +142,13 @@ export function Header({
           >
             {isDark ? <Sun size={14} /> : <Moon size={14} />}
             {isDark ? "浅色模式" : "深色模式"}
-            <button
-              onClick={(e) => { e.stopPropagation(); onToggleThemeLock(); }}
-              className={[
-                "ml-auto rounded p-0.5 transition-colors",
-                isThemeLocked
-                  ? "text-fg hover:text-fg-muted"
-                  : "text-fg-faint hover:text-fg-muted",
-              ].join(" ")}
-              aria-label={isThemeLocked ? "解锁，跟随系统" : "锁定主题"}
-            >
-              {isThemeLocked ? <Lock size={12} /> : <LockOpen size={12} />}
-            </button>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={onToggleThemeLock}
+            className="gap-2.5 text-[13px]"
+          >
+            {isThemeLocked ? <Lock size={14} /> : <LockOpen size={14} />}
+            {isThemeLocked ? "已锁定主题" : "跟随系统"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

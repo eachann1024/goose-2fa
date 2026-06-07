@@ -179,6 +179,33 @@
     transition: none;
   }
 
+  .timer-ring {
+    transition: none;
+  }
+
+  /* 拖动浮层：被"拎起"的卡片——放大、强投影、微旋转 */
+  .dragging-overlay {
+    cursor: grabbing;
+    transform: scale(1.04);
+    box-shadow:
+      0 18px 40px -8px rgb(0 0 0 / 0.35),
+      0 6px 14px -6px rgb(0 0 0 / 0.25);
+    animation: cell-lift 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes cell-lift {
+    from {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgb(0 0 0 / 0);
+    }
+    to {
+      transform: scale(1.04);
+      box-shadow:
+        0 18px 40px -8px rgb(0 0 0 / 0.35),
+        0 6px 14px -6px rgb(0 0 0 / 0.25);
+    }
+  }
+
   .cell-enter {
     animation: cell-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
   }

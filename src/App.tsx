@@ -7,7 +7,6 @@ import { AddAccount } from "@/components/AddAccount";
 import { DataTransfer } from "@/components/DataTransfer";
 import { TrashBin } from "@/components/TrashBin";
 import { AccountDetail } from "@/components/AccountDetail";
-import { QuickCode } from "@/components/QuickCode";
 import type { AccountData } from "@/lib/types";
 import type { PluginEnterDetail } from "@/platform/types";
 
@@ -23,6 +22,9 @@ export default function App() {
   const showTrash = useAccounts((s) => s.showTrash);
   const isDark = useAccounts((s) => s.isDark);
   const isThemeLocked = useAccounts((s) => s.isThemeLocked);
+  const viewMode = useAccounts((s) => s.viewMode);
+  const setViewMode = useAccounts((s) => s.setViewMode);
+  const reorderAccounts = useAccounts((s) => s.reorderAccounts);
   const load = useAccounts((s) => s.load);
   const addAccount = useAccounts((s) => s.addAccount);
   const importAccounts = useAccounts((s) => s.importAccounts);
@@ -44,8 +46,6 @@ export default function App() {
   const [addFormAction, setAddFormAction] = useState<"clipboard" | "capture" | undefined>();
   const [detailAccount, setDetailAccount] = useState<AccountData | null>(null);
   const [flipState, setFlipState] = useState<FlipState>("idle");
-  const [quickMode, setQuickMode] = useState(false);
-  const [quickQuery, setQuickQuery] = useState("");
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
@@ -81,30 +81,19 @@ export default function App() {
     const handleEnter = (e: Event) => {
       const detail = (e as CustomEvent<PluginEnterDetail>).detail;
       load();
-      const code = detail?.code;
-      if (code === "quick") {
-        // 带参数的快速粘贴：剥离前缀后剩下的字符串作为初始 query
+      // 所有进入码（2fa / quick / manage）统一进主界面。
+      // quick 带参数时把关键字灌进搜索框，进来即是过滤好的列表。
+      if (detail?.code === "quick") {
         const raw = (detail?.payload ?? "").trim();
         const query = raw.replace(/^(2fa|otp|验证码)\s+/i, "").trim();
-        setQuickQuery(query);
-        setQuickMode(true);
-      } else if (code === "2fa") {
-        // 单关键字（2FA / OTP / 验证码 / 二步验证）→ 直接看账户列表
-        setQuickQuery("");
-        setQuickMode(true);
-      } else {
-        // code === "manage" 或 uTools detached window → 主 UI
-        setQuickMode(false);
+        if (query) setSearchQuery(query);
       }
     };
-    const handleOut = () => setQuickMode(false);
     window.addEventListener("goose-2fa:plugin-enter", handleEnter);
-    window.addEventListener("goose-2fa:plugin-out", handleOut);
     return () => {
       window.removeEventListener("goose-2fa:plugin-enter", handleEnter);
-      window.removeEventListener("goose-2fa:plugin-out", handleOut);
     };
-  }, [load]);
+  }, [load, setSearchQuery]);
 
   const handleCopy = (_text: string) => {};
 
@@ -137,16 +126,6 @@ export default function App() {
       setDetailAccount(null);
     }, 700);
   }, [removeAccount]);
-
-  if (quickMode) {
-    return (
-      <QuickCode
-        accounts={accounts}
-        initialQuery={quickQuery}
-        onIncrement={incrementCounter}
-      />
-    );
-  }
 
   if (showTrash) {
     return (
@@ -210,6 +189,8 @@ export default function App() {
           hasAccounts={accounts.length > 0}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          viewMode={viewMode}
+          onToggleView={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
           onAdd={() => { setAddFormAction(undefined); setShowAddForm(true); }}
           onManageData={() => setShowDataTransfer(true)}
           onTrash={() => setShowTrash(true)}
@@ -222,9 +203,11 @@ export default function App() {
         <CodeGrid
           accounts={accounts}
           searchQuery={searchQuery}
+          viewMode={viewMode}
           onCopy={handleCopy}
           onDetail={handleOpenDetail}
           onIncrement={incrementCounter}
+          onReorder={reorderAccounts}
           onAdd={() => { setAddFormAction(undefined); setShowAddForm(true); }}
           onClipboardImport={() => { setAddFormAction("clipboard"); setShowAddForm(true); }}
           onScreenCapture={() => { setAddFormAction("capture"); setShowAddForm(true); }}
