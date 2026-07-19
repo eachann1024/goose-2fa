@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { Search, Plus, X, MoreHorizontal, Moon, Sun, ArrowDownUp, Trash2, Lock, LockOpen, LayoutGrid, List } from "lucide-react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
+import { Search, Plus, X, MoreHorizontal, Moon, Sun, ArrowDownUp, Trash2, Lock, LockOpen, LayoutGrid, List, Columns3, Sparkles } from "lucide-react";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupButton } from "@/components/ui/input-group";
 import type { ViewMode } from "@/stores/useAccounts";
 import {
@@ -23,6 +23,8 @@ interface HeaderProps {
   isThemeLocked: boolean;
   onToggleDark: () => void;
   onToggleThemeLock: () => void;
+  ambientEnabled: boolean;
+  onToggleAmbient: () => void;
   trashCount: number;
 }
 
@@ -39,8 +41,28 @@ export function Header({
   isThemeLocked,
   onToggleDark,
   onToggleThemeLock,
+  ambientEnabled,
+  onToggleAmbient,
   trashCount,
 }: HeaderProps) {
+  const VIEW_CYCLE: Record<ViewMode, ViewMode> = {
+    compact: "grid",
+    grid: "list",
+    list: "compact",
+  };
+
+  const VIEW_LABELS: Record<ViewMode, string> = {
+    compact: "紧凑三列视图",
+    grid: "双列网格视图",
+    list: "列表视图",
+  };
+
+  const VIEW_ICONS: Record<ViewMode, ReactNode> = {
+    compact: <Columns3 size={17} />,
+    grid: <LayoutGrid size={17} />,
+    list: <List size={17} />,
+  };
+
   const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -72,6 +94,7 @@ export function Header({
           </InputGroupAddon>
           <InputGroupInput
             ref={inputRef}
+            aria-label="搜索账户"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="搜索账户..."
@@ -81,6 +104,7 @@ export function Header({
               onClick={handleSearchToggle}
               size="icon-xs"
               variant="ghost"
+              aria-label="清除并关闭搜索"
               className="text-fg-faint shadow-none hover:bg-transparent hover:text-fg-muted"
             >
               <X size={13} />
@@ -97,10 +121,10 @@ export function Header({
               <button
                 onClick={onToggleView}
                 className="rounded-lg p-2 text-fg-muted transition-colors hover:bg-surface hover:text-fg"
-                aria-label={viewMode === "grid" ? "切换为列表视图" : "切换为网格视图"}
-                title={viewMode === "grid" ? "列表视图" : "网格视图"}
+                aria-label={`当前${VIEW_LABELS[viewMode]}，点击切换`}
+                title={VIEW_LABELS[VIEW_CYCLE[viewMode]]}
               >
-                {viewMode === "grid" ? <List size={17} /> : <LayoutGrid size={17} />}
+                {VIEW_ICONS[viewMode]}
               </button>
               <button
                 onClick={handleSearchToggle}
@@ -130,7 +154,7 @@ export function Header({
             <Trash2 size={14} />
             回收站
             {trashCount > 0 && (
-              <span className="ml-auto rounded-full bg-timer-low/10 px-1.5 py-0.5 text-[10px] font-medium text-timer-low">
+              <span className="ml-auto rounded-full bg-danger-soft px-1.5 py-0.5 text-[10px] font-medium text-timer-low">
                 {trashCount}
               </span>
             )}
@@ -141,14 +165,21 @@ export function Header({
             className="gap-2.5 text-[13px]"
           >
             {isDark ? <Sun size={14} /> : <Moon size={14} />}
-            {isDark ? "浅色模式" : "深色模式"}
+            {isDark ? "切换到浅色模式" : "切换到深色模式"}
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={onToggleThemeLock}
             className="gap-2.5 text-[13px]"
           >
             {isThemeLocked ? <Lock size={14} /> : <LockOpen size={14} />}
-            {isThemeLocked ? "已锁定主题" : "跟随系统"}
+            {isThemeLocked ? "改为跟随系统" : "锁定当前主题"}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={onToggleAmbient}
+            className="gap-2.5 text-[13px]"
+          >
+            <Sparkles size={14} />
+            {ambientEnabled ? "关闭背景氛围" : "开启背景氛围"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

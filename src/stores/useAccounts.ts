@@ -1,25 +1,81 @@
 import { create } from "zustand";
 import { arrayMove } from "@dnd-kit/sortable";
-import type { AccountData, NewAccountInput } from "@/lib/types";
+import type { AccountData, NewAccountInput, VaultGroup } from "@/lib/types";
 import type { PlatformAdapter } from "@/platform/types";
+import { normalizeNewAccountInput, normalizeStoredAccounts } from "@/lib/account-validation";
+import {
+  UNGROUPED_KEY,
+  nextGroupOrder,
+  normalizeGroupName,
+  resolveSelectedGroup,
+} from "@/lib/groups";
 
 let platform: PlatformAdapter;
+let persistQueue: Promise<void> = Promise.resolve();
 
 export function initPlatform(adapter: PlatformAdapter) {
   platform = adapter;
+  persistQueue = Promise.resolve();
 }
 
-export type ViewMode = "grid" | "list";
+export type ViewMode = "grid" | "compact" | "list";
 
 const VIEW_MODE_KEY = "goose-2fa-view";
+const GROUP_KEY = "goose-2fa-group";
+const GROUPS_KEY = "goose-2fa-groups";
+const AMBIENT_KEY = "goose-2fa-ambient";
+/** 兼容旧 issuer 侧栏选中，读取一次后清除 */
+const LEGACY_CATEGORY_KEY = "goose-2fa-category";
 
 function loadViewMode(): ViewMode {
-  return localStorage.getItem(VIEW_MODE_KEY) === "list" ? "list" : "grid";
+  const stored = localStorage.getItem(VIEW_MODE_KEY);
+  if (stored === "compact" || stored === "list" || stored === "grid") return stored;
+  return "compact";
+}
+
+function loadSelectedGroup(): string | null {
+  const stored = localStorage.getItem(GROUP_KEY);
+  if (stored) return stored;
+  // 旧分类键不再映射到一级分组，直接丢弃以免脏状态
+  if (localStorage.getItem(LEGACY_CATEGORY_KEY)) {
+    localStorage.removeItem(LEGACY_CATEGORY_KEY);
+  }
+  return null;
+}
+
+function loadGroups(): VaultGroup[] {
+  try {
+    const raw = localStorage.getItem(GROUPS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as VaultGroup[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((g) => g && typeof g.id === "string" && typeof g.name === "string")
+      .map((g, i) => ({
+        id: g.id,
+        name: g.name,
+        order: typeof g.order === "number" ? g.order : i,
+        createdAt: typeof g.createdAt === "number" ? g.createdAt : Date.now(),
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function persistGroups(groups: VaultGroup[]) {
+  localStorage.setItem(GROUPS_KEY, JSON.stringify(groups));
+}
+
+function loadAmbientEnabled(): boolean {
+  const stored = localStorage.getItem(AMBIENT_KEY);
+  if (stored === null) return true;
+  return stored === "true";
 }
 
 interface AccountsState {
   accounts: AccountData[];
   trash: AccountData[];
+  groups: VaultGroup[];
   searchQuery: string;
   showAddForm: boolean;
   showDataTransfer: boolean;
@@ -28,19 +84,31 @@ interface AccountsState {
   isThemeLocked: boolean;
   editMode: boolean;
   viewMode: ViewMode;
+  selectedGroup: string | null;
+  ambientEnabled: boolean;
+  loadStatus: "idle" | "loading" | "ready" | "error";
+  loadError: string | null;
 
   load: () => Promise<void>;
   save: (accounts: AccountData[]) => void;
   setViewMode: (mode: ViewMode) => void;
+  setSelectedGroup: (groupId: string | null) => void;
+  setAmbientEnabled: (enabled: boolean) => void;
+  toggleAmbient: () => void;
   reorderAccounts: (activeId: string, overId: string) => void;
   addAccount: (input: NewAccountInput) => void;
-  importAccounts: (inputs: NewAccountInput[]) => void;
+  importAccounts: (inputs: NewAccountInput[], groups?: VaultGroup[]) => void;
   removeAccount: (id: string) => void;
   restoreAccount: (id: string) => void;
   permanentlyDelete: (id: string) => void;
   emptyTrash: () => void;
   updateNote: (id: string, note: string) => void;
   updateRemark: (id: string, remark: string) => void;
+  updateAccountGroup: (id: string, groupId: string | null) => void;
+  createGroup: (name: string) => string | null;
+  renameGroup: (id: string, name: string) => boolean;
+  deleteGroup: (id: string) => void;
+  reorderGroups: (activeId: string, overId: string) => void;
   incrementCounter: (id: string) => void;
   setSearchQuery: (query: string) => void;
   setShowAddForm: (show: boolean) => void;
@@ -53,10 +121,13 @@ interface AccountsState {
 }
 
 function persist(accounts: AccountData[]) {
-  const result = platform.saveAccounts(accounts);
-  if (result instanceof Promise) {
-    result.catch((err) => console.error("[goose-2fa] persist failed:", err));
-  }
+  const snapshot = accounts.map((account) => ({ ...account }));
+  persistQueue = persistQueue
+    .then(() => Promise.resolve(platform.saveAccounts(snapshot)))
+    .catch((err) => {
+      console.error("[goose-2fa] persist failed:", err);
+      platform.showNotification("账户保存失败，请检查存储权限后重试");
+    });
 }
 
 function persistTrash(trash: AccountData[]) {
@@ -70,7 +141,7 @@ async function loadFromStorage(): Promise<AccountData[]> {
 function loadTrashFromStorage(): AccountData[] {
   try {
     const raw = localStorage.getItem("goose-2fa-trash");
-    return raw ? JSON.parse(raw) : [];
+    return raw ? normalizeStoredAccounts(JSON.parse(raw)) : [];
   } catch {
     return [];
   }
@@ -79,6 +150,7 @@ function loadTrashFromStorage(): AccountData[] {
 export const useAccounts = create<AccountsState>((set, get) => ({
   accounts: [],
   trash: [],
+  groups: loadGroups(),
   searchQuery: "",
   showAddForm: false,
   showDataTransfer: false,
@@ -89,14 +161,36 @@ export const useAccounts = create<AccountsState>((set, get) => ({
   isThemeLocked: localStorage.getItem("goose-2fa-dark") !== null,
   editMode: false,
   viewMode: loadViewMode(),
+  selectedGroup: loadSelectedGroup(),
+  ambientEnabled: loadAmbientEnabled(),
+  loadStatus: "idle",
+  loadError: null,
 
   load: async () => {
-    const trash = loadTrashFromStorage();
-    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const validTrash = trash.filter((a) => (a.deletedAt ?? 0) > thirtyDaysAgo);
-    if (validTrash.length !== trash.length) persistTrash(validTrash);
-    const accounts = await loadFromStorage();
-    set({ accounts, trash: validTrash });
+    if (get().loadStatus === "loading") return;
+    set({ loadStatus: "loading", loadError: null });
+    try {
+      const groups = loadGroups();
+      const validGroupIds = new Set(groups.map((group) => group.id));
+      const trash = normalizeStoredAccounts(loadTrashFromStorage(), validGroupIds);
+      const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      const validTrash = trash.filter((a) => (a.deletedAt ?? 0) > thirtyDaysAgo);
+      if (validTrash.length !== trash.length) persistTrash(validTrash);
+      const loaded = await loadFromStorage();
+      const accounts = normalizeStoredAccounts(loaded, validGroupIds);
+      const selectedGroup = resolveSelectedGroup(get().selectedGroup, groups, accounts);
+      if (selectedGroup !== get().selectedGroup) {
+        if (selectedGroup) localStorage.setItem(GROUP_KEY, selectedGroup);
+        else localStorage.removeItem(GROUP_KEY);
+      }
+      set({ accounts, trash: validTrash, groups, selectedGroup, loadStatus: "ready" });
+    } catch (error) {
+      console.error("[goose-2fa] load failed:", error);
+      set({
+        loadStatus: "error",
+        loadError: "无法读取本地账户，请重试。已有数据不会被覆盖。",
+      });
+    }
   },
 
   save: (accounts) => {
@@ -107,6 +201,23 @@ export const useAccounts = create<AccountsState>((set, get) => ({
   setViewMode: (mode) => {
     localStorage.setItem(VIEW_MODE_KEY, mode);
     set({ viewMode: mode });
+  },
+
+  setSelectedGroup: (groupId) => {
+    if (groupId) localStorage.setItem(GROUP_KEY, groupId);
+    else localStorage.removeItem(GROUP_KEY);
+    set({ selectedGroup: groupId });
+  },
+
+  setAmbientEnabled: (enabled) => {
+    localStorage.setItem(AMBIENT_KEY, String(enabled));
+    set({ ambientEnabled: enabled });
+  },
+
+  toggleAmbient: () => {
+    const next = !get().ambientEnabled;
+    localStorage.setItem(AMBIENT_KEY, String(next));
+    set({ ambientEnabled: next });
   },
 
   reorderAccounts: (activeId, overId) => {
@@ -121,61 +232,76 @@ export const useAccounts = create<AccountsState>((set, get) => ({
   },
 
   addAccount: (input) => {
-    const meta: import("@/lib/types").AccountMeta = {
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      locale: navigator.language,
-      platform: navigator.platform,
-    };
+    const normalized = normalizeNewAccountInput(input);
+    if (!normalized) return;
+    const displayName = normalized.issuer
+      ? `${normalized.issuer} (${normalized.name})`
+      : normalized.name;
 
-    const displayName = input.issuer
-      ? `${input.issuer} (${input.name})`
-      : input.name;
+    const selected = get().selectedGroup;
+    const groupId =
+      selected && selected !== UNGROUPED_KEY && get().groups.some((g) => g.id === selected)
+        ? selected
+        : null;
 
     const account: AccountData = {
-      ...input,
+      ...normalized,
       id: crypto.randomUUID(),
       createdAt: Date.now(),
-      meta,
       originalName: displayName,
+      groupId,
     };
-
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          account.meta = {
-            ...account.meta,
-            location: {
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
-              accuracy: pos.coords.accuracy,
-            },
-          };
-          const updated = get().accounts.map((a) =>
-            a.id === account.id ? account : a,
-          );
-          persist(updated);
-          set({ accounts: updated });
-        },
-        () => {},
-        { timeout: 5000, maximumAge: 300000 },
-      );
-    }
 
     const next = [...get().accounts, account];
     persist(next);
     set({ accounts: next, showAddForm: false });
   },
 
-  importAccounts: (inputs) => {
+  importAccounts: (inputs, importedGroups = []) => {
     const now = Date.now();
-    const newAccounts = inputs.map((input, i) => ({
-      ...input,
-      id: crypto.randomUUID(),
-      createdAt: now + i,
-    }));
+    const selected = get().selectedGroup;
+    const selectedGroupId =
+      selected && selected !== UNGROUPED_KEY && get().groups.some((g) => g.id === selected)
+        ? selected
+        : null;
+    const currentGroups = get().groups;
+    const mergedGroups = [...currentGroups];
+    const groupIdMap = new Map<string, string>();
+    for (const imported of importedGroups) {
+      const sameId = mergedGroups.find((group) => group.id === imported.id);
+      const sameName = mergedGroups.find(
+        (group) => group.name.localeCompare(imported.name, undefined, { sensitivity: "accent" }) === 0,
+      );
+      if (sameId && sameId.name.localeCompare(imported.name, undefined, { sensitivity: "accent" }) === 0) {
+        groupIdMap.set(imported.id, sameId.id);
+      } else if (sameName) {
+        groupIdMap.set(imported.id, sameName.id);
+      } else {
+        const id = imported.id && !sameId ? imported.id : crypto.randomUUID();
+        groupIdMap.set(imported.id, id);
+        mergedGroups.push({
+          ...imported,
+          id,
+          order: nextGroupOrder(mergedGroups),
+          createdAt: imported.createdAt || now,
+        });
+      }
+    }
+    const newAccounts = inputs
+      .map(normalizeNewAccountInput)
+      .filter((input): input is NewAccountInput => input !== null)
+      .map((input, i) => ({
+        ...input,
+        id: crypto.randomUUID(),
+        createdAt: now + i,
+        groupId: importedGroups.length > 0
+          ? (input.groupId ? groupIdMap.get(input.groupId) ?? null : null)
+          : selectedGroupId,
+      }));
     const next = [...get().accounts, ...newAccounts];
+    if (mergedGroups.length !== currentGroups.length) persistGroups(mergedGroups);
     persist(next);
-    set({ accounts: next });
+    set({ accounts: next, groups: mergedGroups });
   },
 
   updateNote: (id, note) => {
@@ -192,6 +318,79 @@ export const useAccounts = create<AccountsState>((set, get) => ({
     );
     persist(next);
     set({ accounts: next });
+  },
+
+  updateAccountGroup: (id, groupId) => {
+    const safeGroupId = groupId && get().groups.some((group) => group.id === groupId)
+      ? groupId
+      : null;
+    const next = get().accounts.map((a) =>
+      a.id === id ? { ...a, groupId: safeGroupId } : a,
+    );
+    persist(next);
+    set({ accounts: next });
+  },
+
+  createGroup: (name) => {
+    const cleaned = normalizeGroupName(name);
+    if (!cleaned) return null;
+    const groups = get().groups;
+    if (groups.some((g) => g.name.localeCompare(cleaned, undefined, { sensitivity: "accent" }) === 0)) return null;
+    const group: VaultGroup = {
+      id: crypto.randomUUID(),
+      name: cleaned,
+      order: nextGroupOrder(groups),
+      createdAt: Date.now(),
+    };
+    const next = [...groups, group];
+    persistGroups(next);
+    set({ groups: next, selectedGroup: group.id });
+    localStorage.setItem(GROUP_KEY, group.id);
+    return group.id;
+  },
+
+  renameGroup: (id, name) => {
+    const cleaned = normalizeGroupName(name);
+    if (!cleaned) return false;
+    const groups = get().groups;
+    if (groups.some((g) => g.id !== id && g.name.localeCompare(cleaned, undefined, { sensitivity: "accent" }) === 0)) return false;
+    const next = groups.map((g) => (g.id === id ? { ...g, name: cleaned } : g));
+    persistGroups(next);
+    set({ groups: next });
+    return true;
+  },
+
+  deleteGroup: (id) => {
+    const nextGroups = get().groups.filter((g) => g.id !== id);
+    const nextAccounts = get().accounts.map((a) =>
+      a.groupId === id ? { ...a, groupId: null } : a,
+    );
+    const nextTrash = get().trash.map((a) =>
+      a.groupId === id ? { ...a, groupId: null } : a,
+    );
+    persistGroups(nextGroups);
+    persist(nextAccounts);
+    persistTrash(nextTrash);
+    const selectedGroup =
+      get().selectedGroup === id ? null : get().selectedGroup;
+    if (selectedGroup) localStorage.setItem(GROUP_KEY, selectedGroup);
+    else localStorage.removeItem(GROUP_KEY);
+    set({ groups: nextGroups, accounts: nextAccounts, trash: nextTrash, selectedGroup });
+  },
+
+  reorderGroups: (activeId, overId) => {
+    if (activeId === overId) return;
+    if (activeId === UNGROUPED_KEY || overId === UNGROUPED_KEY) return;
+    const current = get().groups;
+    const sorted = [...current].sort(
+      (a, b) => a.order - b.order || a.name.localeCompare(b.name, "zh"),
+    );
+    const from = sorted.findIndex((g) => g.id === activeId);
+    const to = sorted.findIndex((g) => g.id === overId);
+    if (from === -1 || to === -1) return;
+    const moved = arrayMove(sorted, from, to).map((g, i) => ({ ...g, order: i }));
+    persistGroups(moved);
+    set({ groups: moved });
   },
 
   removeAccount: (id) => {
@@ -212,8 +411,11 @@ export const useAccounts = create<AccountsState>((set, get) => ({
     const account = get().trash.find((a) => a.id === id);
     if (!account) return;
     const { deletedAt: _, ...restored } = account;
+    const safeGroupId = restored.groupId && get().groups.some((group) => group.id === restored.groupId)
+      ? restored.groupId
+      : null;
     const nextTrash = get().trash.filter((a) => a.id !== id);
-    const nextAccounts = [...get().accounts, restored as AccountData];
+    const nextAccounts = [...get().accounts, { ...restored, groupId: safeGroupId } as AccountData];
     persist(nextAccounts);
     persistTrash(nextTrash);
     set({ accounts: nextAccounts, trash: nextTrash });
@@ -252,13 +454,11 @@ export const useAccounts = create<AccountsState>((set, get) => ({
 
   toggleThemeLock: () => {
     if (get().isThemeLocked) {
-      // 解锁：移除手动偏好，跟随系统
       localStorage.removeItem("goose-2fa-dark");
       const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
       document.documentElement.classList.toggle("dark", systemDark);
       set({ isThemeLocked: false, isDark: systemDark });
     } else {
-      // 锁定：固定当前主题
       localStorage.setItem("goose-2fa-dark", String(get().isDark));
       set({ isThemeLocked: true });
     }

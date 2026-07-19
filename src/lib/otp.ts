@@ -1,14 +1,16 @@
 import type { ParsedOtpAuth } from "./types";
+import { normalizeBase32Secret, normalizeNewAccountInput } from "./account-validation";
 
 const BASE32_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 function base32Decode(input: string): Uint8Array {
-  const cleaned = input.replace(/[\s=-]+/g, "").toUpperCase();
+  const cleaned = normalizeBase32Secret(input);
+  if (!cleaned) throw new Error("Invalid Base32 secret");
   const bits: number[] = [];
 
   for (const char of cleaned) {
     const val = BASE32_CHARS.indexOf(char);
-    if (val === -1) continue;
+    if (val === -1) throw new Error("Invalid Base32 secret");
     for (let i = 4; i >= 0; i--) {
       bits.push((val >> i) & 1);
     }
@@ -27,6 +29,7 @@ function base32Decode(input: string): Uint8Array {
 }
 
 function intToBytes(num: number): Uint8Array {
+  if (!Number.isSafeInteger(num) || num < 0) throw new Error("Invalid HOTP counter");
   const bytes = new Uint8Array(8);
   for (let i = 7; i >= 0; i--) {
     bytes[i] = num & 0xff;
@@ -52,6 +55,7 @@ async function hmac(
 }
 
 function dynamicTruncate(hmacResult: Uint8Array, digits: number): string {
+  if (digits !== 6 && digits !== 8) throw new Error("Unsupported OTP digits");
   const offset = hmacResult[hmacResult.length - 1]! & 0x0f;
   const code =
     ((hmacResult[offset]! & 0x7f) << 24) |
@@ -80,6 +84,9 @@ export async function generateTOTP(
   digits: number = 6,
   algorithm: string = "SHA-1",
 ): Promise<{ code: string; remaining: number }> {
+  if (!Number.isSafeInteger(period) || period < 1 || period > 300) {
+    throw new Error("Invalid TOTP period");
+  }
   const now = Math.floor(Date.now() / 1000);
   const timeStep = Math.floor(now / period);
   const remaining = period - (now % period);
@@ -142,16 +149,17 @@ export function parseOtpAuthUri(uri: string): ParsedOtpAuth | null {
       "SHA-512": "SHA-512",
     };
 
-    return {
+    const normalized = normalizeNewAccountInput({
       name,
       issuer,
-      secret: secret.replace(/\s/g, "").toUpperCase(),
+      secret,
       type: type as "totp" | "hotp",
-      digits: parseInt(params.get("digits") || "6") || 6,
-      period: parseInt(params.get("period") || "30") || 30,
-      counter: parseInt(params.get("counter") || "0") || 0,
-      algorithm: algorithmMap[algParam] ?? "SHA-1",
-    };
+      digits: params.get("digits") ?? 6,
+      period: params.get("period") ?? 30,
+      counter: params.get("counter") ?? 0,
+      algorithm: algorithmMap[algParam] ?? algParam,
+    });
+    return normalized as ParsedOtpAuth | null;
   } catch {
     return null;
   }

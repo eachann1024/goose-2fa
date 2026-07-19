@@ -7,7 +7,7 @@ import {
   Hash,
 } from "lucide-react";
 import { parseOtpAuthUri } from "@/lib/otp";
-import { parseGoogleAuthMigration } from "@/lib/google-auth-migration";
+import { parseGoogleAuthMigrationPayload } from "@/lib/google-auth-migration";
 import { isBase32Secret } from "@/lib/data-transfer";
 import { Input } from "@/components/ui/input";
 import { usePlatform } from "@/platform/context";
@@ -84,12 +84,17 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
           return true;
         }
         setImportError("无法解析此 OTP 链接");
-        return false;
+        return true;
       }
 
       // 2. Google Authenticator migration
       if (trimmed.startsWith("otpauth-migration://")) {
-        const entries = parseGoogleAuthMigration(trimmed);
+        const migration = parseGoogleAuthMigrationPayload(trimmed);
+        if (migration?.batchSize && migration.batchSize > 1) {
+          setImportError(`这是第 ${migration.batchIndex + 1}/${migration.batchSize} 张迁移二维码。为避免漏账户，请在 Google Authenticator 中减少本次导出账户数量后重试。`);
+          return true;
+        }
+        const entries = migration?.accounts;
         if (entries && entries.length > 0) {
           if (entries.length === 1) {
             onAdd(entries[0]!);
@@ -102,14 +107,14 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
           return true;
         }
         setImportError("无法解析 Google Authenticator 迁移数据");
-        return false;
+        return true;
       }
 
       // 3. Plain base32 secret
       if (isBase32Secret(trimmed)) {
         setSecret(trimmed.replace(/[\s-]/g, "").toUpperCase());
         setImportError("");
-        return false; // don't auto-add; let user fill in the name
+        return true; // 已填入密钥，等待用户补充名称后保存。
       }
 
       return false;
@@ -146,9 +151,7 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
       if (isStale()) return;
       if (qrResult) {
         if (processDecodedContent(qrResult)) return;
-        if (!importError) {
-          setImportError("二维码内容不是有效的 OTP 数据");
-        }
+        setImportError("二维码内容不是有效的 OTP 数据");
         return;
       }
 
@@ -156,7 +159,7 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
     } catch {
       if (!isStale()) setImportError("读取剪贴板失败");
     }
-  }, [processDecodedContent, importError, platform]);
+  }, [processDecodedContent, platform]);
 
   const handleScreenCapture = useCallback(async () => {
     const myGen = ++captureGenRef.current;
@@ -219,8 +222,9 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
         {/* Quick import section */}
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={handleClipboardImport}
-            className="flex flex-1 items-center gap-2.5 rounded-cell border bg-surface px-3.5 py-3 text-left transition-colors hover:bg-surface-hover hover:border-fg-faint/30"
+            className="flex flex-1 items-center gap-2.5 rounded-cell border bg-surface px-3.5 py-3 text-left transition-colors hover:border-border-strong hover:bg-surface-hover"
           >
             <ClipboardPaste size={17} className="shrink-0 text-accent" />
             <div className="min-w-0">
@@ -233,8 +237,9 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
             </div>
           </button>
           <button
+            type="button"
             onClick={handleScreenCapture}
-            className="flex flex-1 items-center gap-2.5 rounded-cell border bg-surface px-3.5 py-3 text-left transition-colors hover:bg-surface-hover hover:border-fg-faint/30"
+            className="flex flex-1 items-center gap-2.5 rounded-cell border bg-surface px-3.5 py-3 text-left transition-colors hover:border-border-strong hover:bg-surface-hover"
           >
             <ScanLine size={17} className="shrink-0 text-accent" />
             <div className="min-w-0">
@@ -249,7 +254,7 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
         </div>
 
         {importError && (
-          <p className="fade-in rounded-lg bg-timer-low/10 px-3 py-2 text-[12px] text-timer-low">
+          <p role="alert" aria-live="polite" className="fade-in rounded-lg bg-danger-soft px-3 py-2 text-[12px] text-timer-low">
             {importError}
           </p>
         )}
@@ -262,13 +267,20 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
         </div>
 
         {/* Manual form */}
-        <div className="flex flex-col gap-3">
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            handleSubmit();
+          }}
+        >
           <div>
-            <label className="mb-1.5 block text-[12px] font-medium text-fg-muted">
+            <label htmlFor="account-name" className="mb-1.5 block text-[12px] font-medium text-fg-muted">
               账户名称
             </label>
             <Input
               type="text"
+              id="account-name"
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
@@ -279,11 +291,12 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
           </div>
 
           <div>
-            <label className="mb-1.5 block text-[12px] font-medium text-fg-muted">
+            <label htmlFor="account-secret" className="mb-1.5 block text-[12px] font-medium text-fg-muted">
               密钥
             </label>
             <Input
               type="text"
+              id="account-secret"
               value={secret}
               onChange={(e) => {
                 setSecret(e.target.value);
@@ -293,6 +306,8 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
               className="font-mono tracking-wider"
               autoComplete="off"
               spellCheck={false}
+              aria-invalid={Boolean(error && !secret.trim())}
+              aria-describedby={error ? "account-form-error" : undefined}
             />
           </div>
 
@@ -303,9 +318,11 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
             <div className="flex gap-2">
               <button
                 onClick={() => setType("totp")}
+                type="button"
+                aria-pressed={type === "totp"}
                 className={`flex flex-1 items-center gap-2 rounded-cell border px-3.5 py-2.5 text-[12.5px] font-medium transition-colors ${
                   type === "totp"
-                    ? "border-accent/40 bg-accent-subtle text-accent"
+                    ? "border-accent-border bg-accent-subtle text-accent"
                     : "bg-surface text-fg-muted hover:bg-surface-hover"
                 }`}
               >
@@ -314,9 +331,11 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
               </button>
               <button
                 onClick={() => setType("hotp")}
+                type="button"
+                aria-pressed={type === "hotp"}
                 className={`flex flex-1 items-center gap-2 rounded-cell border px-3.5 py-2.5 text-[12.5px] font-medium transition-colors ${
                   type === "hotp"
-                    ? "border-accent/40 bg-accent-subtle text-accent"
+                    ? "border-accent-border bg-accent-subtle text-accent"
                     : "bg-surface text-fg-muted hover:bg-surface-hover"
                 }`}
               >
@@ -327,16 +346,16 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
           </div>
 
           {error && (
-            <p className="fade-in text-[12px] text-timer-low">{error}</p>
+            <p id="account-form-error" role="alert" className="fade-in text-[12px] text-timer-low">{error}</p>
           )}
 
           <button
-            onClick={handleSubmit}
+            type="submit"
             className="mt-1 rounded-cell bg-accent py-2.5 text-[13px] font-medium text-accent-fg transition-colors hover:bg-accent-hover active:scale-[0.98]"
           >
             保存
           </button>
-        </div>
+        </form>
       </div>
     </div>
   );

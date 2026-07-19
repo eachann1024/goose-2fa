@@ -22,16 +22,10 @@ export const codeSplittingGroups = [
     test: /[\\/]node_modules[\\/](react|react-dom|scheduler|react-is)[\\/]/,
     priority: 50,
   },
-  // @base-ui/react —— 4 个在用 ui 组件的底层无障碍原语
+  // @base-ui/react —— 在用组件的底层无障碍原语
   {
     name: "base-ui",
     test: /[\\/]node_modules[\\/]@base-ui[\\/]/,
-    priority: 40,
-  },
-  // HeroUI 设计体系（@heroui/react + @heroui/styles 及其内部依赖）
-  {
-    name: "heroui",
-    test: /[\\/]node_modules[\\/]@heroui[\\/]/,
     priority: 40,
   },
   // 图标库 —— 即便按需引入也常占可观体积，拆出便于观测
