@@ -8,7 +8,6 @@
     "clipboard-manager:allow-read-text",
     "dialog:allow-save",
     "dialog:allow-open",
-    "notification:default",
-    "fs:default"
+    "notification:default"
   ]
 }

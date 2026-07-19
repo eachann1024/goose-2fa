@@ -7,9 +7,9 @@ import { codeInspectorPlugin } from "code-inspector-plugin";
 
 export default defineConfig({
   plugins: [
-    codeInspectorPlugin({
-      bundler: "vite",
-    }),
+    ...(process.env.VITEST
+      ? []
+      : [codeInspectorPlugin({ bundler: "vite" })]),
     react(),
     tailwindcss(),
   ],

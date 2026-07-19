@@ -3,6 +3,12 @@ import path from "node:path";
 
 const distDir = path.resolve("dist-utools");
 const rootDir = path.resolve(".");
+const incompatibleCssPatterns = [
+  ["color-mix()", /color-mix\s*\(/i],
+  ["oklch()", /oklch\s*\(/i],
+  ["lab()", /(^|[^a-z-])lab\s*\(/i],
+  ["lch()", /(^|[^a-z-])lch\s*\(/i],
+];
 
 if (!fs.existsSync(distDir)) {
   console.error("dist-utools 目录不存在");
@@ -10,6 +16,28 @@ if (!fs.existsSync(distDir)) {
 }
 
 try {
+  for (const file of fs.readdirSync(path.join(distDir, "assets"))) {
+    if (!file.endsWith(".css")) continue;
+    const cssPath = path.join(distDir, "assets", file);
+    const css = fs.readFileSync(cssPath, "utf-8");
+    // Tailwind 4 的 preflight 会生成一段仅用于现代浏览器的 placeholder
+    // 渐进增强。项目已有显式 placeholder 颜色，uTools/Chrome 108 不需要它。
+    const compatibleCss = css.replace(
+      /@supports\s*\(color:color-mix\(in lab,\s*red,\s*red\)\)\{::placeholder\{color:color-mix\(in oklab,\s*currentcolor 50%,\s*transparent\)\}\}/gi,
+      "",
+    );
+    fs.writeFileSync(cssPath, compatibleCss);
+
+    const unsupported = incompatibleCssPatterns.find(([, pattern]) =>
+      pattern.test(compatibleCss),
+    );
+    if (unsupported) {
+      throw new Error(
+        `${file} 仍包含 Chrome 108 不支持的 ${unsupported[0]} 颜色语法`,
+      );
+    }
+  }
+
   const preloadSrc = path.join(rootDir, "utools/preload.cjs");
   if (fs.existsSync(preloadSrc)) {
     fs.copyFileSync(preloadSrc, path.join(distDir, "preload.js"));

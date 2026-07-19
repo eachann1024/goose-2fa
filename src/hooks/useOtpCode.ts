@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { generateTOTP, generateHOTP } from "@/lib/otp";
 import type { AccountData } from "@/lib/types";
 
@@ -10,52 +10,26 @@ interface OtpResult {
 
 export function useOtpCode(account: AccountData): OtpResult {
   const [code, setCode] = useState("------");
-  const [remaining, setRemaining] = useState(account.period || 30);
-  const lastStepRef = useRef(-1);
+  const nowSeconds = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot);
+  const period = account.period || 30;
+  const step = account.type === "totp" ? Math.floor(nowSeconds / period) : account.counter;
+  const remaining = account.type === "totp" ? period - (nowSeconds % period) : -1;
 
   useEffect(() => {
-    if (account.type === "hotp") {
-      generateHOTP(
-        account.secret,
-        account.counter,
-        account.digits,
-        account.algorithm,
-      ).then(setCode);
-      setRemaining(-1);
-      return;
-    }
-
-    const period = account.period || 30;
     let active = true;
-
-    const tick = async () => {
-      if (!active) return;
-      const nowMs = Date.now();
-      const step = Math.floor(nowMs / 1000 / period);
-      const rem = period - (nowMs / 1000) % period;
-      setRemaining(rem);
-
-      if (step !== lastStepRef.current) {
-        lastStepRef.current = step;
-        try {
-          const result = await generateTOTP(
-            account.secret,
-            period,
-            account.digits,
-            account.algorithm,
-          );
-          if (active) setCode(result.code);
-        } catch {
-          if (active) setCode("ERROR");
-        }
+    const generate = async () => {
+      try {
+        const next = account.type === "hotp"
+          ? await generateHOTP(account.secret, account.counter, account.digits, account.algorithm)
+          : (await generateTOTP(account.secret, period, account.digits, account.algorithm)).code;
+        if (active) setCode(next);
+      } catch {
+        if (active) setCode("ERROR");
       }
     };
-
-    tick();
-    const interval = setInterval(tick, 100);
+    void generate();
     return () => {
       active = false;
-      clearInterval(interval);
     };
   }, [
     account.secret,
@@ -64,7 +38,36 @@ export function useOtpCode(account: AccountData): OtpResult {
     account.digits,
     account.algorithm,
     account.counter,
+    period,
+    step,
   ]);
 
-  return { code, remaining, period: account.period || 30 };
+  return { code, remaining, period };
+}
+
+let clockSeconds = Math.floor(Date.now() / 1000);
+let clockTimer: ReturnType<typeof setInterval> | undefined;
+const clockListeners = new Set<() => void>();
+
+function getClockSnapshot() {
+  return clockSeconds;
+}
+
+function subscribeClock(listener: () => void) {
+  clockListeners.add(listener);
+  if (!clockTimer) {
+    clockTimer = setInterval(() => {
+      const next = Math.floor(Date.now() / 1000);
+      if (next === clockSeconds) return;
+      clockSeconds = next;
+      clockListeners.forEach((notify) => notify());
+    }, 250);
+  }
+  return () => {
+    clockListeners.delete(listener);
+    if (clockListeners.size === 0 && clockTimer) {
+      clearInterval(clockTimer);
+      clockTimer = undefined;
+    }
+  };
 }

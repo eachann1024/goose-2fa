@@ -66,7 +66,7 @@ export function TrashBin({ trash, onRestore, onPermanentDelete, onEmptyTrash, on
             <div className="flex items-center gap-1.5">
               <button
                 onClick={handleEmptyTrash}
-                className="rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-timer-low transition-colors hover:bg-timer-low/10"
+                className="rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-timer-low transition-colors hover:bg-danger-soft"
               >
                 确认清空
               </button>
@@ -94,7 +94,7 @@ export function TrashBin({ trash, onRestore, onPermanentDelete, onEmptyTrash, on
             <Trash2 size={24} className="text-fg-faint" />
           </div>
           <p className="text-[13px] text-fg-faint">回收站是空的</p>
-          <p className="text-[11px] text-fg-faint/60">删除的账户会在此保留 30 天</p>
+          <p className="text-[11px] text-fg-faint">删除的账户会在此保留 30 天</p>
         </div>
       ) : (
         <div className="flex flex-col gap-2 px-4 pb-4">
@@ -138,7 +138,7 @@ export function TrashBin({ trash, onRestore, onPermanentDelete, onEmptyTrash, on
                   {isConfirmingDelete ? (
                     <button
                       onClick={() => handlePermanentDelete(account.id)}
-                      className="rounded-lg px-2 py-1.5 text-[11px] font-medium text-timer-low transition-colors hover:bg-timer-low/10"
+                      className="rounded-lg px-2 py-1.5 text-[11px] font-medium text-timer-low transition-colors hover:bg-danger-soft"
                     >
                       确认
                     </button>

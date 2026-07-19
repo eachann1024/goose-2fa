@@ -1,18 +1,20 @@
 import { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react";
-import { ArrowLeft, Check, Copy, Trash2, MapPin, Clock, Globe, Monitor, Tag, Pencil } from "lucide-react";
+import { ArrowLeft, Check, Copy, Trash2, MapPin, Clock, Globe, Monitor, Tag, Pencil, FolderOpen } from "lucide-react";
 import { useOtpCode } from "@/hooks/useOtpCode";
 import { formatCode } from "@/lib/otp";
-import type { AccountData } from "@/lib/types";
+import type { AccountData, VaultGroup } from "@/lib/types";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AccountDetailProps {
   account: AccountData;
+  groups: VaultGroup[];
   onClose: () => void;
   onDelete: (id: string) => void;
-  onCopy: (text: string) => void;
+  onCopy: (text: string) => boolean | Promise<boolean>;
   onUpdateNote: (id: string, note: string) => void;
   onUpdateRemark: (id: string, remark: string) => void;
+  onUpdateGroup: (id: string, groupId: string | null) => void;
 }
 
 const DAY_NAMES = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
@@ -30,9 +32,19 @@ function formatLocation(lat: number, lng: number): string {
   return `${Math.abs(lat).toFixed(4)}° ${latDir}, ${Math.abs(lng).toFixed(4)}° ${lngDir}`;
 }
 
-export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote, onUpdateRemark }: AccountDetailProps) {
+export function AccountDetail({
+  account,
+  groups,
+  onClose,
+  onDelete,
+  onCopy,
+  onUpdateNote,
+  onUpdateRemark,
+  onUpdateGroup,
+}: AccountDetailProps) {
   const { code, remaining, period } = useOtpCode(account);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [editingNote, setEditingNote] = useState(false);
   const [noteValue, setNoteValue] = useState("");
@@ -43,6 +55,7 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
   const noteInputRef = useRef<HTMLInputElement>(null);
   const remarkInputRef = useRef<HTMLInputElement>(null);
   const nameSpanRef = useRef<HTMLSpanElement>(null);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => requestAnimationFrame(() => setBarReady(true)));
@@ -78,10 +91,18 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
     if (editingRemark) remarkInputRef.current?.focus();
   }, [editingRemark]);
 
-  const handleCopy = useCallback(() => {
-    onCopy(code);
+  useEffect(() => () => clearTimeout(copyTimerRef.current), []);
+
+  const handleCopy = useCallback(async () => {
+    setCopyError(false);
+    const success = await onCopy(code);
+    if (!success) {
+      setCopyError(true);
+      return;
+    }
     setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
+    clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopied(false), 1200);
   }, [code, onCopy]);
 
   const handleDelete = useCallback(() => {
@@ -182,6 +203,7 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
       {/* 顶栏 */}
       <div className="mb-6 flex items-center gap-2">
         <button
+          autoFocus
           onClick={onClose}
           className="rounded-lg p-2 text-fg-muted transition-colors hover:bg-surface hover:text-fg"
           aria-label="返回"
@@ -204,7 +226,7 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
             onBlur={handleNoteSave}
             onKeyDown={handleNoteKeyDown}
             placeholder={originalName}
-            className="h-[44px] border-accent/40 px-3.5 py-0 text-[18px] font-semibold leading-none focus:border-accent/70"
+            className="h-[44px] border-accent-border px-3.5 py-0 text-[18px] font-semibold leading-none focus:border-accent"
             style={{ caretColor: "var(--color-accent)" }}
           />
         ) : (
@@ -234,7 +256,7 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
                 {displayName}
               </span>
             )}
-            <Pencil size={13} className="shrink-0 text-fg-faint opacity-0 transition-opacity group-hover:opacity-100" />
+            <Pencil size={13} className="shrink-0 text-fg-faint" />
           </button>
         )}
 
@@ -259,7 +281,7 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
               <span className={`min-w-0 flex-1 truncate text-[12.5px] leading-none ${remark ? "text-fg-muted" : "text-fg-faint"}`}>
                 {remark || "添加备注"}
               </span>
-              <Pencil size={11} className="shrink-0 text-fg-faint opacity-0 transition-opacity group-hover:opacity-100" />
+              <Pencil size={11} className="shrink-0 text-fg-faint" />
             </button>
           )}
         </div>
@@ -269,11 +291,16 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
       <div
         role="button"
         tabIndex={0}
-        onClick={handleCopy}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleCopy(); }}
+        onClick={() => void handleCopy()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            void handleCopy();
+          }
+        }}
         className={`mb-2 flex cursor-pointer items-center justify-between rounded-cell border p-5 transition-all duration-150 ${
           copied
-            ? "copied-flash border-copied/30"
+            ? "copied-flash border-copied-border"
             : "bg-surface hover:bg-surface-hover active:scale-[0.98]"
         }`}
       >
@@ -296,13 +323,18 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
           <Copy size={17} className="text-fg-faint" />
         )}
       </div>
+      {copyError && (
+        <p role="alert" className="mb-2 text-[12px] text-timer-low">
+          复制失败，请检查剪贴板权限后重试
+        </p>
+      )}
 
       {/* 进度条 */}
       {isTotp && (
-        <div className="mb-6 h-[4px] w-full overflow-hidden rounded-full bg-border/60">
+        <div className="mb-6 h-[4px] w-full overflow-hidden rounded-full bg-border-soft">
           <div
             className={`timer-bar h-full rounded-full ${
-              isLow ? "bg-timer-low" : "bg-accent/70"
+              isLow ? "bg-timer-low" : "bg-accent"
             } ${barReady ? "" : "no-transition"}`}
             style={{ width: `${progress * 100}%` }}
           />
@@ -319,6 +351,37 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
           </span>
         </div>
       )}
+
+      {/* 分组归属 */}
+      <div className="mb-4 rounded-cell border bg-surface px-4 py-3">
+        <div className="mb-2 flex items-center gap-2">
+          <FolderOpen size={13} className="text-fg-faint" />
+          <span className="text-[11px] text-fg-faint">分组</span>
+        </div>
+        <select
+          value={account.groupId ?? ""}
+          onChange={(e) => {
+            const v = e.target.value;
+            onUpdateGroup(account.id, v ? v : null);
+          }}
+          className="h-9 w-full rounded-lg border border-border bg-input px-2.5 text-[12.5px] text-fg outline-none transition-colors focus:border-accent-border"
+          aria-label="移动到分组"
+        >
+          <option value="">未分组</option>
+          {[...groups]
+            .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "zh"))
+            .map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+        </select>
+        {groups.length === 0 && (
+          <p className="mt-1.5 text-[11px] text-fg-faint">
+            在主界面顶部创建分组后，可在此归档账户
+          </p>
+        )}
+      </div>
 
       {/* 元数据 */}
       <div className="mb-6 rounded-cell border bg-surface p-4">
@@ -338,8 +401,8 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
       {/* 删除 */}
       <div className="mt-auto">
         {confirmingDelete ? (
-          <div className="flex items-center justify-between rounded-cell border border-timer-low/20 bg-timer-low/5 px-4 py-3">
-            <span className="text-[12.5px] text-fg-muted">确认删除此账户?</span>
+          <div className="flex items-center justify-between rounded-cell border border-danger-border bg-danger-faint px-4 py-3">
+            <span className="text-[12.5px] text-fg-muted">确认删除此账户？</span>
             <div className="flex gap-2">
               <button
                 onClick={handleDelete}
@@ -359,7 +422,7 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
         ) : (
           <button
             onClick={handleDelete}
-            className="flex w-full items-center justify-center gap-1.5 rounded-cell border py-2.5 text-[12.5px] text-fg-faint transition-colors hover:border-timer-low/30 hover:bg-timer-low/5 hover:text-timer-low"
+            className="flex w-full items-center justify-center gap-1.5 rounded-cell border py-2.5 text-[12.5px] text-fg-faint transition-colors hover:border-danger-border hover:bg-danger-faint hover:text-timer-low"
           >
             <Trash2 size={13} />
             删除账户

@@ -16,13 +16,11 @@ pub struct ClipboardImage {
 pub fn read_clipboard_image() -> Result<Option<ClipboardImage>, String> {
     let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
     match clipboard.get_image() {
-        Ok(image) => {
-            Ok(Some(ClipboardImage {
-                width: image.width as u32,
-                height: image.height as u32,
-                data: image.into_owned_bytes().into_owned(),
-            }))
-        }
+        Ok(image) => Ok(Some(ClipboardImage {
+            width: image.width as u32,
+            height: image.height as u32,
+            data: image.into_owned_bytes().into_owned(),
+        })),
         Err(_) => Ok(None),
     }
 }

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { RefreshCw, Check, Info, GripVertical } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -9,7 +9,7 @@ import type { ViewMode } from "@/stores/useAccounts";
 
 interface CodeCellProps {
   account: AccountData;
-  onCopy: (text: string) => void;
+  onCopy: (text: string) => boolean | Promise<boolean>;
   onDetail: (account: AccountData) => void;
   onIncrement: (id: string) => void;
   index: number;
@@ -22,12 +22,13 @@ export function CodeCell({
   onCopy,
   onDetail,
   onIncrement,
-  index,
+  index: _index,
   viewMode,
   sortable,
 }: CodeCellProps) {
   const { code, remaining, period } = useOtpCode(account);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const {
@@ -39,8 +40,17 @@ export function CodeCell({
     isDragging,
   } = useSortable({ id: account.id, disabled: !sortable });
 
-  const handleCopy = useCallback(() => {
-    onCopy(code);
+  useEffect(() => () => clearTimeout(timeoutRef.current), []);
+
+  const handleCopy = useCallback(async () => {
+    setCopyError(false);
+    const success = await onCopy(code);
+    if (!success) {
+      setCopyError(true);
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => setCopyError(false), 1800);
+      return;
+    }
     setCopied(true);
     clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => setCopied(false), 1200);
@@ -68,23 +78,26 @@ export function CodeCell({
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    ...(isDragging
-      ? { opacity: 0.4 }
-      : { animationDelay: `${index * 40}ms` }),
+    ...(isDragging ? { opacity: 0.4 } : {}),
   };
 
   // 拖拽手柄：sortable 时显示，按住它才触发拖动，其余区域仍可点击复制。
+  // list 用 self-start 与名称行垂直对齐；grid/compact 仍绝对定位。
   const handle = sortable ? (
     <button
       {...attributes}
       {...listeners}
       onClick={(e) => e.stopPropagation()}
-      className={`drag-handle shrink-0 cursor-grab touch-none rounded-md p-1 text-fg-faint opacity-0 transition-all hover:bg-bg hover:text-fg-muted group-hover:opacity-100 active:cursor-grabbing ${
-        isList ? "" : "absolute left-1.5 top-2.5"
+      className={`drag-handle shrink-0 cursor-grab touch-none rounded-md text-fg-faint opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 active:cursor-grabbing ${
+        isList
+          ? "self-start -ml-1 flex h-[15px] w-[15px] items-center justify-center p-0"
+          : viewMode === "compact"
+            ? "absolute left-1 top-1.5 p-1"
+            : "absolute left-1.5 top-2.5 p-1"
       }`}
       aria-label="拖动排序"
     >
-      <GripVertical size={isList ? 15 : 13} />
+      <GripVertical size={isList ? 14 : viewMode === "compact" ? 12 : 13} />
     </button>
   ) : null;
 
@@ -94,8 +107,8 @@ export function CodeCell({
       style={style}
       viewMode={viewMode}
       copied={copied}
-      onClick={handleCopy}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleCopy(); }}
+      onClick={() => void handleCopy()}
+      copyLabel={`复制 ${account.issuer || account.name} 的验证码`}
       interactive
     >
       {handle}
@@ -105,6 +118,7 @@ export function CodeCell({
         remaining={remaining}
         period={period}
         copied={copied}
+        copyError={copyError}
         viewMode={viewMode}
         sortable={sortable}
         onDetailClick={handleDetailClick}
@@ -124,6 +138,14 @@ interface CodeCellOverlayProps {
 /** DragOverlay 内渲染的卡片副本：纯展示，带"被拎起"的放大与投影。 */
 export function CodeCellOverlay({ account, viewMode }: CodeCellOverlayProps) {
   const { code, remaining, period } = useOtpCode(account);
+  const isList = viewMode === "list";
+  // list 浮层保留侧栏占位手柄，与源卡片布局一致。
+  const overlayHandle = isList ? (
+    <span className="drag-handle -ml-1 flex h-[15px] w-[15px] shrink-0 items-center justify-center self-start rounded-md p-0 text-fg-faint">
+      <GripVertical size={14} />
+    </span>
+  ) : null;
+
   return (
     <CellShell
       viewMode={viewMode}
@@ -131,6 +153,7 @@ export function CodeCellOverlay({ account, viewMode }: CodeCellOverlayProps) {
       className="dragging-overlay"
       style={{ cursor: "grabbing" }}
     >
+      {overlayHandle}
       <CellBody
         account={account}
         code={code}
@@ -155,7 +178,7 @@ interface CellShellProps {
   style?: React.CSSProperties;
   interactive?: boolean;
   onClick?: () => void;
-  onKeyDown?: (e: React.KeyboardEvent) => void;
+  copyLabel?: string;
   ref?: React.Ref<HTMLDivElement>;
 }
 
@@ -167,31 +190,38 @@ function CellShell({
   style,
   interactive,
   onClick,
-  onKeyDown,
+  copyLabel,
   ref,
 }: CellShellProps) {
   const isList = viewMode === "list";
+  const isCompact = viewMode === "compact";
   const layout = isList
     ? "flex w-full items-center gap-3 px-3.5 py-3"
-    : "flex w-full flex-col items-start p-4 pb-3";
+    : isCompact
+      ? "flex w-full flex-col items-start p-2.5 pb-2"
+      : "flex w-full flex-col items-start p-4 pb-3";
   const base = copied
-    ? "copied-flash border-copied/30"
+    ? "copied-flash border-copied-border"
     : interactive
-      ? "bg-surface hover:bg-surface-hover hover:border-fg-faint/30 " +
+      ? "bg-surface hover:bg-surface-hover hover:border-border-strong " +
         (isList ? "active:scale-[0.99]" : "active:scale-[0.98]")
       : "bg-surface";
 
   return (
     <div
       ref={ref}
-      role="button"
-      tabIndex={interactive ? 0 : -1}
-      onClick={onClick}
-      onKeyDown={onKeyDown}
       style={style}
       className={`${className.includes("dragging-overlay") ? "" : "cell-enter"} group relative cursor-pointer rounded-cell border text-left transition-all duration-150 ${layout} ${base} ${className}`}
     >
-      {children}
+      {interactive && (
+        <button
+          type="button"
+          className="absolute inset-0 rounded-cell"
+          onClick={onClick}
+          aria-label={copyLabel}
+        />
+      )}
+      <div className="cell-content contents">{children}</div>
     </div>
   );
 }
@@ -204,6 +234,7 @@ interface CellBodyProps {
   remaining: number;
   period: number;
   copied: boolean;
+  copyError?: boolean;
   viewMode: ViewMode;
   sortable: boolean;
   overlay?: boolean;
@@ -217,6 +248,7 @@ function CellBody({
   remaining,
   period,
   copied,
+  copyError,
   viewMode,
   sortable,
   overlay,
@@ -230,6 +262,7 @@ function CellBody({
     ? `${account.issuer} (${account.name})`
     : account.name;
   const isList = viewMode === "list";
+  const isCompact = viewMode === "compact";
 
   if (isList) {
     return (
@@ -244,7 +277,9 @@ function CellBody({
             }`}
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {copied ? (
+            {copyError ? (
+              <span className="text-[13px] text-timer-low">复制失败</span>
+            ) : copied ? (
               <span className="flex items-center gap-1.5 text-[16px]">
                 <Check size={16} strokeWidth={2.5} />
                 已复制
@@ -258,10 +293,10 @@ function CellBody({
         {isTotp ? (
           <div className="relative flex h-9 w-9 shrink-0 items-center justify-center">
             <svg className="h-9 w-9 -rotate-90" viewBox="0 0 36 36">
-              <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="3" className="stroke-border/60" />
+              <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="3" className="stroke-border-soft" />
               <circle
                 cx="18" cy="18" r="15.5" fill="none" strokeWidth="3" strokeLinecap="round"
-                className={`timer-ring ${isLow ? "stroke-timer-low" : "stroke-accent/70"}`}
+                className={`timer-ring ${isLow ? "stroke-timer-low" : "stroke-accent"}`}
                 strokeDasharray={2 * Math.PI * 15.5}
                 strokeDashoffset={2 * Math.PI * 15.5 * (1 - progress)}
               />
@@ -288,7 +323,7 @@ function CellBody({
         {!overlay && (
           <button
             onClick={onDetailClick}
-            className="shrink-0 rounded-md p-1 text-fg-faint opacity-0 transition-all hover:bg-bg hover:text-fg-muted group-hover:opacity-100"
+            className="shrink-0 rounded-md p-1 text-fg-faint opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
             aria-label="详情"
           >
             <Info size={14} />
@@ -298,13 +333,86 @@ function CellBody({
     );
   }
 
-  // 网格视图
+
+  if (isCompact) {
+    return (
+      <>
+        {!overlay && (
+          <button
+            onClick={onDetailClick}
+            className="absolute right-2 top-2 rounded-md p-0.5 text-fg-faint opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
+            aria-label="详情"
+          >
+            <Info size={11} />
+          </button>
+        )}
+
+        <span
+          className={`mb-1 max-w-full truncate text-[10px] leading-tight text-fg-muted ${
+            sortable ? "pl-4" : ""
+          }`}
+        >
+          {displayName}
+        </span>
+
+        <div className="flex w-full items-center justify-between">
+          <span
+            className={`flex h-[22px] items-center font-mono text-[18px] font-semibold leading-none tracking-[0.06em] transition-colors duration-200 ${
+              copied ? "text-copied" : isLow ? "text-timer-low" : "text-fg"
+            }`}
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {copyError ? (
+              <span className="text-[11px] text-timer-low">复制失败</span>
+            ) : copied ? (
+              <span className="flex items-center gap-1 text-[13px]">
+                <Check size={13} strokeWidth={2.5} />
+                已复制
+              </span>
+            ) : (
+              formatCode(code)
+            )}
+          </span>
+
+          {!isTotp && !copied && !overlay && (
+            <button
+              onClick={onRefresh}
+              className="rounded-md p-0.5 text-fg-faint transition-colors hover:bg-bg hover:text-accent"
+              aria-label="下一个"
+            >
+              <RefreshCw size={13} />
+            </button>
+          )}
+        </div>
+
+        {isTotp && (
+          <div className="mt-2 h-[2px] w-full overflow-hidden rounded-full bg-border">
+            <div
+              className={`timer-bar h-full rounded-full ${isLow ? "bg-timer-low" : "bg-accent"}`}
+              style={{ width: `${progress * 100}%` }}
+            />
+          </div>
+        )}
+
+        {!isTotp && (
+          <div className="mt-2 flex items-center gap-1">
+            <span className="text-[9px] font-medium uppercase tracking-wider text-fg-faint">
+              HOTP
+            </span>
+            <span className="text-[9px] text-fg-faint">#{account.counter}</span>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // 双列网格视图
   return (
     <>
       {!overlay && (
         <button
           onClick={onDetailClick}
-          className="absolute right-2.5 top-2.5 rounded-md p-1 text-fg-faint opacity-0 transition-all hover:bg-bg hover:text-fg-muted group-hover:opacity-100"
+          className="absolute right-2.5 top-2.5 rounded-md p-1 text-fg-faint opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
           aria-label="详情"
         >
           <Info size={13} />
@@ -326,7 +434,9 @@ function CellBody({
           }`}
           style={{ fontVariantNumeric: "tabular-nums" }}
         >
-          {copied ? (
+          {copyError ? (
+            <span className="text-[15px] text-timer-low">复制失败</span>
+          ) : copied ? (
             <span className="flex items-center gap-1.5 text-[18px]">
               <Check size={18} strokeWidth={2.5} />
               已复制
@@ -348,9 +458,9 @@ function CellBody({
       </div>
 
       {isTotp && (
-        <div className="mt-3 h-[4px] w-full overflow-hidden rounded-full bg-border/60">
+        <div className="mt-3 h-[4px] w-full overflow-hidden rounded-full bg-border-soft">
           <div
-            className={`timer-bar h-full rounded-full ${isLow ? "bg-timer-low" : "bg-accent/70"}`}
+            className={`timer-bar h-full rounded-full ${isLow ? "bg-timer-low" : "bg-accent"}`}
             style={{ width: `${progress * 100}%` }}
           />
         </div>
