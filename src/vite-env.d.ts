@@ -19,6 +19,19 @@ interface Goose2FA {
   showWindow: () => void;
   saveToFile?: (content: string, defaultName: string) => boolean;
   readFromFile?: () => string | null;
+  /** 接管 uTools 主搜索框作为子输入框 */
+  setSubInput?: (
+    handler: (text: string) => void,
+    placeholder: string,
+    initial?: string,
+  ) => boolean;
+  removeSubInput?: () => void;
+  /** 隐藏主窗口并粘贴到上一个聚焦窗口 */
+  pasteText?: (text: string) => boolean;
+  /** 隐藏主窗口并模拟键盘输入（粘贴被拒时的兜底） */
+  typeString?: (text: string) => boolean;
+  /** 退出当前插件回到 uTools 主搜索框 */
+  outPlugin?: () => void;
 }
 
 interface Window {

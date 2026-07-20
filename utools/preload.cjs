@@ -110,18 +110,25 @@ if (typeof window !== "undefined" && typeof utools !== "undefined") {
     }
   };
 
+  /** 子搜索框 handler，由 React 侧通过 window.goose2fa.setSubInput 注册。 */
+  let subInputHandler = null;
+  const safeCall = (fn, ...args) => {
+    try {
+      if (typeof fn === "function") return fn(...args);
+    } catch (err) {
+      console.error("[goose-2fa] utools api failed:", err);
+    }
+    return undefined;
+  };
+
   window.goose2fa = {
     loadAccounts: readAccounts,
     saveAccounts: writeAccounts,
     copyText: (text) => {
-      if (typeof utools?.copyText === "function") {
-        utools.copyText(text);
-      }
+      safeCall(utools?.copyText, text);
     },
     showNotification: (text) => {
-      if (typeof utools?.showNotification === "function") {
-        utools.showNotification(text);
-      }
+      safeCall(utools?.showNotification, text);
     },
     readClipboardImage,
     readClipboardText: () => {
@@ -137,25 +144,58 @@ if (typeof window !== "undefined" && typeof utools !== "undefined") {
     saveToFile,
     readFromFile,
     hideWindow: () => {
-      if (typeof utools?.hideMainWindow === "function") {
-        utools.hideMainWindow();
-      }
+      safeCall(utools?.hideMainWindow);
     },
     showWindow: () => {
-      if (typeof utools?.showMainWindow === "function") {
-        utools.showMainWindow();
+      safeCall(utools?.showMainWindow);
+    },
+
+    /** uTools 子搜索框 API 包装 */
+    setSubInput: (handler, placeholder, initial) => {
+      subInputHandler = typeof handler === "function" ? handler : null;
+      const ok = safeCall(
+        utools?.setSubInput,
+        ({ text }) => {
+          if (subInputHandler) subInputHandler(text || "");
+        },
+        placeholder || "搜索账户...",
+        true,
+      );
+      if (typeof initial === "string" && initial.length > 0) {
+        safeCall(utools?.setSubInputValue, initial);
       }
+      return ok === true;
+    },
+    removeSubInput: () => {
+      subInputHandler = null;
+      safeCall(utools?.removeSubInput);
+    },
+    /** 粘贴到上一个聚焦窗口；返回 boolean */
+    pasteText: (text) => {
+      const ok = safeCall(utools?.hideMainWindowPasteText, text);
+      return ok === true;
+    },
+    /** 模拟键盘输入（防剪贴板被监听场景） */
+    typeString: (text) => {
+      const ok = safeCall(utools?.hideMainWindowTypeString, text);
+      return ok === true;
+    },
+    outPlugin: () => {
+      safeCall(utools?.outPlugin);
     },
   };
 
-  utools.onPluginEnter(({ code }) => {
+  utools.onPluginEnter(({ code, type, payload }) => {
     window.dispatchEvent(
-      new CustomEvent("goose-2fa:plugin-enter", { detail: { code } }),
+      new CustomEvent("goose-2fa:plugin-enter", {
+        detail: { code, type, payload },
+      }),
     );
   });
 
   if (typeof utools.onPluginOut === "function") {
     utools.onPluginOut(() => {
+      subInputHandler = null;
       window.dispatchEvent(new CustomEvent("goose-2fa:plugin-out"));
     });
   }

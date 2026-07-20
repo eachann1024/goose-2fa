@@ -1,22 +1,25 @@
 import { parseOtpAuthUri } from "./otp";
 import { parseGoogleAuthMigration } from "./google-auth-migration";
-import type { AccountData, NewAccountInput } from "./types";
+import { normalizeBase32Secret, normalizeNewAccountInput } from "./account-validation";
+import type { AccountData, NewAccountInput, VaultGroup } from "./types";
 
 export interface ExportPayload {
-  version: 1;
+  version: 2;
   app: "goose-2fa";
   exported_at: string;
-  accounts: Omit<AccountData, "id" | "createdAt">[];
+  groups: VaultGroup[];
+  accounts: NewAccountInput[];
 }
 
 // ---- Export ----
 
-export function exportAsJson(accounts: AccountData[]): string {
+export function exportAsJson(accounts: AccountData[], groups: VaultGroup[] = []): string {
   const payload: ExportPayload = {
-    version: 1,
+    version: 2,
     app: "goose-2fa",
     exported_at: new Date().toISOString(),
-    accounts: accounts.map(({ id, createdAt, ...rest }) => rest),
+    groups: groups.map(({ id, name, order, createdAt }) => ({ id, name, order, createdAt })),
+    accounts: accounts.map(({ id: _id, createdAt: _createdAt, meta: _meta, deletedAt: _deletedAt, ...rest }) => rest),
   };
   return JSON.stringify(payload, null, 2);
 }
@@ -68,11 +71,8 @@ function normalizeType(t: string | undefined | null): "totp" | "hotp" {
 
 // ---- Base32 detection ----
 
-const BASE32_RE = /^[A-Z2-7]+=*$/i;
-
 export function isBase32Secret(text: string): boolean {
-  const clean = text.replace(/[\s-]/g, "");
-  return clean.length >= 16 && clean.length <= 128 && BASE32_RE.test(clean);
+  return normalizeBase32Secret(text) !== null;
 }
 
 // ---- Format parsers ----
@@ -275,7 +275,7 @@ function parseAccountArray(arr: unknown[]): NewAccountInput[] {
 
 // ---- Main import parser ----
 
-export function parseImportData(text: string): NewAccountInput[] | null {
+function parseImportDataUnchecked(text: string): NewAccountInput[] | null {
   const trimmed = text.trim();
   if (!trimmed) return null;
 
@@ -376,13 +376,77 @@ export function parseImportData(text: string): NewAccountInput[] | null {
   return null;
 }
 
+export interface ImportBundle {
+  accounts: NewAccountInput[];
+  groups: VaultGroup[];
+}
+
+function normalizeGroups(value: unknown): VaultGroup[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const groups: VaultGroup[] = [];
+  for (const [index, item] of value.entries()) {
+    if (!item || typeof item !== "object") continue;
+    const raw = item as Record<string, unknown>;
+    const id = typeof raw.id === "string" ? raw.id.trim() : "";
+    const name = typeof raw.name === "string" ? raw.name.trim().replace(/\s+/g, " ") : "";
+    if (!id || !name || seen.has(id)) continue;
+    seen.add(id);
+    groups.push({
+      id,
+      name: name.slice(0, 20),
+      order: Number.isFinite(raw.order) ? Number(raw.order) : index,
+      createdAt: Number.isFinite(raw.createdAt) ? Number(raw.createdAt) : Date.now() + index,
+    });
+  }
+  return groups;
+}
+
+function normalizeAccounts(values: unknown): NewAccountInput[] {
+  if (!Array.isArray(values)) return [];
+  return values
+    .map(normalizeNewAccountInput)
+    .filter((account): account is NewAccountInput => account !== null);
+}
+
+export function parseImportData(text: string): NewAccountInput[] | null {
+  const parsed = parseImportDataUnchecked(text);
+  if (!parsed) return null;
+  const normalized = normalizeAccounts(parsed);
+  return normalized.length > 0 ? normalized : null;
+}
+
+export function parseImportBundle(text: string): ImportBundle | null {
+  const trimmed = text.trim();
+  try {
+    const json = JSON.parse(trimmed) as Record<string, unknown>;
+    if (json && json.app === "goose-2fa" && Array.isArray(json.accounts)) {
+      const accounts = normalizeAccounts(json.accounts);
+      if (accounts.length === 0) return null;
+      return { accounts, groups: normalizeGroups(json.groups) };
+    }
+  } catch {
+    // 其他支持格式由统一解析器处理。
+  }
+  const accounts = parseImportData(trimmed);
+  return accounts ? { accounts, groups: [] } : null;
+}
+
 // ---- Deduplication ----
 
 export function deduplicateImports(
   incoming: NewAccountInput[],
   existing: AccountData[],
 ): { newAccounts: NewAccountInput[]; dupeCount: number } {
-  const existingSecrets = new Set(existing.map((a) => a.secret));
-  const newAccounts = incoming.filter((a) => !existingSecrets.has(a.secret));
+  const identity = (account: Pick<NewAccountInput, "secret" | "type" | "issuer" | "name">) =>
+    [account.type, normalizeBase32Secret(account.secret) ?? account.secret, account.issuer.trim().toLocaleLowerCase(), account.name.trim().toLocaleLowerCase()].join("\u0000");
+  const seen = new Set(existing.map(identity));
+  const newAccounts: NewAccountInput[] = [];
+  for (const account of incoming) {
+    const key = identity(account);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    newAccounts.push(account);
+  }
   return { newAccounts, dupeCount: incoming.length - newAccounts.length };
 }

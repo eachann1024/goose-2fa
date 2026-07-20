@@ -1,5 +1,5 @@
 import type { AccountData } from "@/lib/types";
-import type { PlatformAdapter } from "./types";
+import type { PlatformAdapter, SubInputHandler } from "./types";
 
 /** uTools 适配器，委托 window.goose2fa */
 export function createUToolsAdapter(): PlatformAdapter {
@@ -53,6 +53,26 @@ export function createUToolsAdapter(): PlatformAdapter {
 
     showNotification(text: string): void {
       api.showNotification(text);
+    },
+
+    setSubInput(handler: SubInputHandler, placeholder: string, initial?: string): void {
+      api.setSubInput?.(handler, placeholder, initial);
+    },
+
+    removeSubInput(): void {
+      api.removeSubInput?.();
+    },
+
+    pasteText(text: string): boolean {
+      return api.pasteText?.(text) ?? false;
+    },
+
+    typeString(text: string): boolean {
+      return api.typeString?.(text) ?? false;
+    },
+
+    outPlugin(): void {
+      api.outPlugin?.();
     },
   };
 }
