@@ -1,6 +1,8 @@
 name: Build & Release
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
     tags: ['v*']
@@ -11,7 +13,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  quality:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run frontend tests
+        run: bun run test
+
+      - name: Check frontend types
+        run: bunx tsc -b
+
+      - name: Build uTools plugin
+        run: bun run build
+
+      - name: Upload uTools artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: goose-2fa-utools
+          path: dist-utools/
+          if-no-files-found: error
+
   build:
+    needs: quality
     strategy:
       fail-fast: false
       matrix:

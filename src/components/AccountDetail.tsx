@@ -1,16 +1,20 @@
-import { useState, useCallback, useRef, useEffect } from "react";
-import { ArrowLeft, Check, Copy, Trash2, MapPin, Clock, Globe, Monitor, Tag, Pencil } from "lucide-react";
+import { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react";
+import { ArrowLeft, Check, Copy, Trash2, MapPin, Clock, Globe, Monitor, Tag, Pencil, FolderOpen } from "lucide-react";
 import { useOtpCode } from "@/hooks/useOtpCode";
 import { formatCode } from "@/lib/otp";
-import type { AccountData } from "@/lib/types";
+import type { AccountData, VaultGroup } from "@/lib/types";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AccountDetailProps {
   account: AccountData;
+  groups: VaultGroup[];
   onClose: () => void;
   onDelete: (id: string) => void;
-  onCopy: (text: string) => void;
+  onCopy: (text: string) => boolean | Promise<boolean>;
   onUpdateNote: (id: string, note: string) => void;
+  onUpdateRemark: (id: string, remark: string) => void;
+  onUpdateGroup: (id: string, groupId: string | null) => void;
 }
 
 const DAY_NAMES = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
@@ -28,14 +32,30 @@ function formatLocation(lat: number, lng: number): string {
   return `${Math.abs(lat).toFixed(4)}° ${latDir}, ${Math.abs(lng).toFixed(4)}° ${lngDir}`;
 }
 
-export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote }: AccountDetailProps) {
+export function AccountDetail({
+  account,
+  groups,
+  onClose,
+  onDelete,
+  onCopy,
+  onUpdateNote,
+  onUpdateRemark,
+  onUpdateGroup,
+}: AccountDetailProps) {
   const { code, remaining, period } = useOtpCode(account);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [editingNote, setEditingNote] = useState(false);
-  const [noteValue, setNoteValue] = useState(account.note ?? "");
+  const [noteValue, setNoteValue] = useState("");
+  const [editingRemark, setEditingRemark] = useState(false);
+  const [remarkValue, setRemarkValue] = useState(account.remark ?? "");
   const [barReady, setBarReady] = useState(false);
+  const [nameOverflow, setNameOverflow] = useState(false);
   const noteInputRef = useRef<HTMLInputElement>(null);
+  const remarkInputRef = useRef<HTMLInputElement>(null);
+  const nameSpanRef = useRef<HTMLSpanElement>(null);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => requestAnimationFrame(() => setBarReady(true)));
@@ -46,20 +66,43 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
   const isLow = isTotp && remaining <= 5;
   const progress = isTotp ? remaining / period : 1;
 
-  const displayName = account.note
-    || (account.issuer ? `${account.issuer} (${account.name})` : account.name);
-
   const originalName = account.originalName
     || (account.issuer ? `${account.issuer} (${account.name})` : account.name);
 
+  const displayName = account.note || originalName;
+
+  useLayoutEffect(() => {
+    const el = nameSpanRef.current;
+    if (!el) return;
+    setNameOverflow(el.scrollWidth > el.clientWidth + 1);
+  }, [displayName]);
+
   useEffect(() => {
-    if (editingNote) noteInputRef.current?.focus();
+    if (editingNote) {
+      const el = noteInputRef.current;
+      if (el) {
+        el.focus();
+        el.select();
+      }
+    }
   }, [editingNote]);
 
-  const handleCopy = useCallback(() => {
-    onCopy(code);
+  useEffect(() => {
+    if (editingRemark) remarkInputRef.current?.focus();
+  }, [editingRemark]);
+
+  useEffect(() => () => clearTimeout(copyTimerRef.current), []);
+
+  const handleCopy = useCallback(async () => {
+    setCopyError(false);
+    const success = await onCopy(code);
+    if (!success) {
+      setCopyError(true);
+      return;
+    }
     setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
+    clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopied(false), 1200);
   }, [code, onCopy]);
 
   const handleDelete = useCallback(() => {
@@ -70,26 +113,51 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
     onDelete(account.id);
   }, [confirmingDelete, account.id, onDelete]);
 
+  const handleStartEditName = useCallback(() => {
+    setNoteValue(displayName);
+    setEditingNote(true);
+  }, [displayName]);
+
   const handleNoteSave = useCallback(() => {
     const trimmed = noteValue.trim();
-    onUpdateNote(account.id, trimmed);
+    // 空 / 与原始名相同 → 清空 note 恢复默认
+    const next = (!trimmed || trimmed === originalName) ? "" : trimmed;
+    if (next !== (account.note ?? "")) {
+      onUpdateNote(account.id, next);
+    }
     setEditingNote(false);
-  }, [noteValue, account.id, onUpdateNote]);
+  }, [noteValue, account.id, account.note, originalName, onUpdateNote]);
 
   const handleNoteKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter") handleNoteSave();
     if (e.key === "Escape") {
-      setNoteValue(account.note ?? "");
       setEditingNote(false);
     }
-  }, [handleNoteSave, account.note]);
+  }, [handleNoteSave]);
+
+  const handleRemarkSave = useCallback(() => {
+    const trimmed = remarkValue.trim();
+    if (trimmed !== (account.remark ?? "")) {
+      onUpdateRemark(account.id, trimmed);
+    }
+    setEditingRemark(false);
+  }, [remarkValue, account.id, account.remark, onUpdateRemark]);
+
+  const handleRemarkKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === "Enter") handleRemarkSave();
+    if (e.key === "Escape") {
+      setRemarkValue(account.remark ?? "");
+      setEditingRemark(false);
+    }
+  }, [handleRemarkSave, account.remark]);
 
   const meta = account.meta;
 
   const metaItems: { icon: React.ReactNode; label: string; value: string }[] = [];
 
-  if (originalName !== displayName || account.note) {
+  if (originalName !== displayName) {
     metaItems.push({
       icon: <Tag size={13} />,
       label: "原始名称",
@@ -127,23 +195,27 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
     });
   }
 
+  const remark = account.remark ?? "";
+
   return (
+    <TooltipProvider delay={200}>
     <div className="flex min-h-screen flex-col bg-bg px-5 pb-6 pt-4">
       {/* 顶栏 */}
       <div className="mb-6 flex items-center gap-2">
         <button
+          autoFocus
           onClick={onClose}
           className="rounded-lg p-2 text-fg-muted transition-colors hover:bg-surface hover:text-fg"
           aria-label="返回"
         >
           <ArrowLeft size={17} />
         </button>
-        <span className="text-[15px] font-semibold tracking-tight text-fg">
+        <span className="text-[15px] font-serif font-semibold tracking-tight text-fg">
           账户详情
         </span>
       </div>
 
-      {/* 备注名称（可编辑） */}
+      {/* 名称（可编辑） + 备注 */}
       <div className="mb-5">
         {editingNote ? (
           <Input
@@ -154,31 +226,81 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
             onBlur={handleNoteSave}
             onKeyDown={handleNoteKeyDown}
             placeholder={originalName}
-            className="h-[44px] border-accent/40 px-3.5 py-0 text-[18px] font-semibold leading-none focus:border-accent/70"
+            className="h-[44px] border-accent-border px-3.5 py-0 text-[18px] font-semibold leading-none focus:border-accent"
             style={{ caretColor: "var(--color-accent)" }}
           />
         ) : (
           <button
-            onClick={() => { setNoteValue(account.note ?? ""); setEditingNote(true); }}
-            className="group flex h-[44px] w-full items-center gap-2 rounded-cell border border-transparent px-3.5 text-left"
+            onClick={handleStartEditName}
+            className="group flex h-[44px] w-full min-w-0 items-center gap-2 rounded-cell border border-transparent px-3.5 text-left"
           >
-            <span className="text-[18px] font-semibold leading-none text-fg">
-              {displayName}
-            </span>
-            <Pencil size={13} className="shrink-0 text-fg-faint opacity-0 transition-opacity group-hover:opacity-100" />
+            {nameOverflow ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span
+                      ref={nameSpanRef}
+                      className="min-w-0 flex-1 truncate text-[18px] font-semibold leading-none text-fg"
+                    >
+                      {displayName}
+                    </span>
+                  }
+                />
+                <TooltipContent>{displayName}</TooltipContent>
+              </Tooltip>
+            ) : (
+              <span
+                ref={nameSpanRef}
+                className="min-w-0 flex-1 truncate text-[18px] font-semibold leading-none text-fg"
+              >
+                {displayName}
+              </span>
+            )}
+            <Pencil size={13} className="shrink-0 text-fg-faint" />
           </button>
         )}
+
+        {/* 备注行 */}
+        <div className="mt-2">
+          {editingRemark ? (
+            <Input
+              ref={remarkInputRef}
+              type="text"
+              value={remarkValue}
+              onChange={(e) => setRemarkValue(e.target.value)}
+              onBlur={handleRemarkSave}
+              onKeyDown={handleRemarkKeyDown}
+              placeholder="添加备注"
+              className="h-[32px] px-3.5 py-0 text-[12.5px] leading-none"
+            />
+          ) : (
+            <button
+              onClick={() => { setRemarkValue(remark); setEditingRemark(true); }}
+              className="group flex h-[32px] w-full items-center gap-2 rounded-cell border border-transparent px-3.5 text-left"
+            >
+              <span className={`min-w-0 flex-1 truncate text-[12.5px] leading-none ${remark ? "text-fg-muted" : "text-fg-faint"}`}>
+                {remark || "添加备注"}
+              </span>
+              <Pencil size={11} className="shrink-0 text-fg-faint" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 验证码区 */}
       <div
         role="button"
         tabIndex={0}
-        onClick={handleCopy}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleCopy(); }}
+        onClick={() => void handleCopy()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            void handleCopy();
+          }
+        }}
         className={`mb-2 flex cursor-pointer items-center justify-between rounded-cell border p-5 transition-all duration-150 ${
           copied
-            ? "copied-flash border-copied/30"
+            ? "copied-flash border-copied-border"
             : "bg-surface hover:bg-surface-hover active:scale-[0.98]"
         }`}
       >
@@ -201,13 +323,18 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
           <Copy size={17} className="text-fg-faint" />
         )}
       </div>
+      {copyError && (
+        <p role="alert" className="mb-2 text-[12px] text-timer-low">
+          复制失败，请检查剪贴板权限后重试
+        </p>
+      )}
 
       {/* 进度条 */}
       {isTotp && (
-        <div className="mb-6 h-[4px] w-full overflow-hidden rounded-full bg-border/60">
+        <div className="mb-6 h-[4px] w-full overflow-hidden rounded-full bg-border-soft">
           <div
             className={`timer-bar h-full rounded-full ${
-              isLow ? "bg-timer-low" : "bg-accent/70"
+              isLow ? "bg-timer-low" : "bg-accent"
             } ${barReady ? "" : "no-transition"}`}
             style={{ width: `${progress * 100}%` }}
           />
@@ -224,6 +351,37 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
           </span>
         </div>
       )}
+
+      {/* 分组归属 */}
+      <div className="mb-4 rounded-cell border bg-surface px-4 py-3">
+        <div className="mb-2 flex items-center gap-2">
+          <FolderOpen size={13} className="text-fg-faint" />
+          <span className="text-[11px] text-fg-faint">分组</span>
+        </div>
+        <select
+          value={account.groupId ?? ""}
+          onChange={(e) => {
+            const v = e.target.value;
+            onUpdateGroup(account.id, v ? v : null);
+          }}
+          className="h-9 w-full rounded-lg border border-border bg-input px-2.5 text-[12.5px] text-fg outline-none transition-colors focus:border-accent-border"
+          aria-label="移动到分组"
+        >
+          <option value="">未分组</option>
+          {[...groups]
+            .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "zh"))
+            .map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+        </select>
+        {groups.length === 0 && (
+          <p className="mt-1.5 text-[11px] text-fg-faint">
+            在主界面顶部创建分组后，可在此归档账户
+          </p>
+        )}
+      </div>
 
       {/* 元数据 */}
       <div className="mb-6 rounded-cell border bg-surface p-4">
@@ -243,8 +401,8 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
       {/* 删除 */}
       <div className="mt-auto">
         {confirmingDelete ? (
-          <div className="flex items-center justify-between rounded-cell border border-timer-low/20 bg-timer-low/5 px-4 py-3">
-            <span className="text-[12.5px] text-fg-muted">确认删除此账户?</span>
+          <div className="flex items-center justify-between rounded-cell border border-danger-border bg-danger-faint px-4 py-3">
+            <span className="text-[12.5px] text-fg-muted">确认删除此账户？</span>
             <div className="flex gap-2">
               <button
                 onClick={handleDelete}
@@ -264,7 +422,7 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
         ) : (
           <button
             onClick={handleDelete}
-            className="flex w-full items-center justify-center gap-1.5 rounded-cell border py-2.5 text-[12.5px] text-fg-faint transition-colors hover:border-timer-low/30 hover:bg-timer-low/5 hover:text-timer-low"
+            className="flex w-full items-center justify-center gap-1.5 rounded-cell border py-2.5 text-[12.5px] text-fg-faint transition-colors hover:border-danger-border hover:bg-danger-faint hover:text-timer-low"
           >
             <Trash2 size={13} />
             删除账户
@@ -272,5 +430,6 @@ export function AccountDetail({ account, onClose, onDelete, onCopy, onUpdateNote
         )}
       </div>
     </div>
+    </TooltipProvider>
   );
 }

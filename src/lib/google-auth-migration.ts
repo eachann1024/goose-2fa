@@ -17,22 +17,29 @@
  */
 
 import type { NewAccountInput } from "./types";
+import { normalizeNewAccountInput } from "./account-validation";
 
 // ---- protobuf primitives ----
 
-function decodeVarint(buf: Uint8Array, offset: number): [number, number] {
-  let result = 0;
-  let shift = 0;
+function decodeVarint(buf: Uint8Array, offset: number): [bigint, number] {
+  let result = 0n;
+  let shift = 0n;
   let pos = offset;
   while (pos < buf.length) {
     const byte = buf[pos]!;
-    result |= (byte & 0x7f) << shift;
+    result |= BigInt(byte & 0x7f) << shift;
     pos++;
-    if (!(byte & 0x80)) break;
-    shift += 7;
-    if (shift > 35) break; // safety
+    if (!(byte & 0x80)) return [result, pos];
+    shift += 7n;
+    if (shift > 63n) throw new Error("Varint exceeds 64 bits");
   }
-  return [result >>> 0, pos];
+  throw new Error("Truncated protobuf varint");
+}
+
+function safeNumber(value: bigint): number {
+  const number = Number(value);
+  if (!Number.isSafeInteger(number) || number < 0) throw new Error("Unsafe protobuf integer");
+  return number;
 }
 
 // ---- base32 encode raw bytes ----
@@ -72,29 +79,33 @@ function parseOtpEntry(buf: Uint8Array): NewAccountInput | null {
   while (pos < buf.length) {
     const [tag, p1] = decodeVarint(buf, pos);
     pos = p1;
-    const field = tag >> 3;
-    const wire = tag & 0x7;
+    const field = safeNumber(tag >> 3n);
+    const wire = safeNumber(tag & 0x7n);
 
     if (wire === 2) {
       const [len, p2] = decodeVarint(buf, pos);
       pos = p2;
-      const data = buf.slice(pos, pos + len);
-      pos += len;
+      const size = safeNumber(len);
+      if (size > buf.length - pos) throw new Error("Truncated protobuf field");
+      const data = buf.slice(pos, pos + size);
+      pos += size;
       if (field === 1) secret = data;
       else if (field === 2) name = new TextDecoder().decode(data);
       else if (field === 3) issuer = new TextDecoder().decode(data);
     } else if (wire === 0) {
       const [val, p2] = decodeVarint(buf, pos);
       pos = p2;
-      if (field === 4) algorithm = val;
-      else if (field === 5) digits = val;
-      else if (field === 6) otpType = val;
-      else if (field === 7) counter = val;
+      const number = safeNumber(val);
+      if (field === 4) algorithm = number;
+      else if (field === 5) digits = number;
+      else if (field === 6) otpType = number;
+      else if (field === 7) counter = number;
     } else {
       // skip unknown wire types
       if (wire === 1) pos += 8;
       else if (wire === 5) pos += 4;
       else break;
+      if (pos > buf.length) throw new Error("Truncated protobuf field");
     }
   }
 
@@ -105,7 +116,6 @@ function parseOtpEntry(buf: Uint8Array): NewAccountInput | null {
     1: "SHA-1",
     2: "SHA-256",
     3: "SHA-512",
-    4: "SHA-1", // MD5 fallback
   };
   const digitMap: Record<number, number> = { 0: 6, 1: 6, 2: 8 };
   const typeMap: Record<number, "totp" | "hotp"> = { 0: "totp", 1: "hotp", 2: "totp" };
@@ -117,45 +127,62 @@ function parseOtpEntry(buf: Uint8Array): NewAccountInput | null {
     name = name.slice(idx + 1).trim();
   }
 
-  return {
+  const normalized = normalizeNewAccountInput({
     name: name || issuer || "Unknown",
     issuer,
     secret: bytesToBase32(secret),
-    type: typeMap[otpType] ?? "totp",
-    digits: digitMap[digits] ?? 6,
+    type: typeMap[otpType] ?? "invalid",
+    digits: digitMap[digits] ?? Number.NaN,
     period: 30,
     counter,
-    algorithm: algMap[algorithm] ?? "SHA-1",
-  };
+    algorithm: algMap[algorithm] ?? "invalid",
+  });
+  return normalized;
 }
 
 // ---- parse the outer MigrationPayload ----
 
-function parseMigrationPayload(buf: Uint8Array): NewAccountInput[] {
+export interface GoogleAuthMigrationPayload {
+  accounts: NewAccountInput[];
+  batchSize: number;
+  batchIndex: number;
+  batchId: number;
+}
+
+function parseMigrationPayload(buf: Uint8Array): GoogleAuthMigrationPayload {
   const entries: NewAccountInput[] = [];
+  let batchSize = 1;
+  let batchIndex = 0;
+  let batchId = 0;
   let pos = 0;
   while (pos < buf.length) {
     const [tag, p1] = decodeVarint(buf, pos);
     pos = p1;
-    const field = tag >> 3;
-    const wire = tag & 0x7;
+    const field = safeNumber(tag >> 3n);
+    const wire = safeNumber(tag & 0x7n);
 
     if (wire === 2) {
       const [len, p2] = decodeVarint(buf, pos);
       pos = p2;
+      const size = safeNumber(len);
+      if (size > buf.length - pos) throw new Error("Truncated protobuf field");
       if (field === 1) {
-        const entry = parseOtpEntry(buf.slice(pos, pos + len));
+        const entry = parseOtpEntry(buf.slice(pos, pos + size));
         if (entry) entries.push(entry);
       }
-      pos += len;
+      pos += size;
     } else if (wire === 0) {
-      const [, p2] = decodeVarint(buf, pos);
+      const [value, p2] = decodeVarint(buf, pos);
       pos = p2;
+      const number = safeNumber(value);
+      if (field === 3) batchSize = number;
+      else if (field === 4) batchIndex = number;
+      else if (field === 5) batchId = number;
     } else {
       break;
     }
   }
-  return entries;
+  return { accounts: entries, batchSize: Math.max(1, batchSize), batchIndex, batchId };
 }
 
 // ---- public API ----
@@ -164,7 +191,7 @@ function parseMigrationPayload(buf: Uint8Array): NewAccountInput[] {
  * Parse a Google Authenticator migration URI.
  * Format: otpauth-migration://offline?data=BASE64
  */
-export function parseGoogleAuthMigration(uri: string): NewAccountInput[] | null {
+export function parseGoogleAuthMigrationPayload(uri: string): GoogleAuthMigrationPayload | null {
   const trimmed = uri.trim();
   if (!trimmed.startsWith("otpauth-migration://")) return null;
 
@@ -179,9 +206,15 @@ export function parseGoogleAuthMigration(uri: string): NewAccountInput[] | null 
       buf[i] = raw.charCodeAt(i);
     }
 
-    const entries = parseMigrationPayload(buf);
-    return entries.length > 0 ? entries : null;
+    const payload = parseMigrationPayload(buf);
+    return payload.accounts.length > 0 ? payload : null;
   } catch {
     return null;
   }
+}
+
+export function parseGoogleAuthMigration(uri: string): NewAccountInput[] | null {
+  const payload = parseGoogleAuthMigrationPayload(uri);
+  if (!payload || payload.batchSize > 1) return null;
+  return payload.accounts;
 }

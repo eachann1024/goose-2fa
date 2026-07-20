@@ -11,16 +11,17 @@ pub fn capture_screen() -> Result<String, String> {
     let image = screen.capture().map_err(|e| e.to_string())?;
 
     // screenshots::Image -> image::RgbaImage
-    let rgba_image = image::RgbaImage::from_raw(
-        image.width(),
-        image.height(),
-        image.as_raw().clone(),
-    ).ok_or("Failed to create RGBA image")?;
+    let rgba_image =
+        image::RgbaImage::from_raw(image.width(), image.height(), image.as_raw().clone())
+            .ok_or("Failed to create RGBA image")?;
 
     // 编码为 PNG 并转为 base64
     let mut png_data = Vec::new();
     rgba_image
-        .write_to(&mut std::io::Cursor::new(&mut png_data), image::ImageFormat::Png)
+        .write_to(
+            &mut std::io::Cursor::new(&mut png_data),
+            image::ImageFormat::Png,
+        )
         .map_err(|e| e.to_string())?;
 
     Ok(base64::Engine::encode(

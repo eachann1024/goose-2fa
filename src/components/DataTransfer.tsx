@@ -1,32 +1,35 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { ArrowLeft, Download, Upload, Check, Copy, FileUp } from "lucide-react";
 import {
   exportAsJson,
   exportAsUris,
-  parseImportData,
+  parseImportBundle,
   deduplicateImports,
 } from "@/lib/data-transfer";
 import { usePlatform } from "@/platform/context";
-import type { AccountData, NewAccountInput } from "@/lib/types";
+import type { AccountData, NewAccountInput, VaultGroup } from "@/lib/types";
 
 interface DataTransferProps {
   accounts: AccountData[];
-  onImport: (inputs: NewAccountInput[]) => void;
+  groups: VaultGroup[];
+  onImport: (inputs: NewAccountInput[], groups?: VaultGroup[]) => void;
   onCancel: () => void;
 }
 
 type ViewStep =
   | { kind: "menu" }
-  | { kind: "preview"; all: NewAccountInput[]; fresh: NewAccountInput[]; dupes: number }
+  | { kind: "preview"; fresh: NewAccountInput[]; groups: VaultGroup[]; dupes: number }
   | { kind: "done"; count: number };
 
-export function DataTransfer({ accounts, onImport, onCancel }: DataTransferProps) {
+export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTransferProps) {
   const platform = usePlatform();
   const [view, setView] = useState<ViewStep>({ kind: "menu" });
   const [copied, setCopied] = useState(false);
   const [exported, setExported] = useState(false);
   const [error, setError] = useState("");
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => () => clearTimeout(timeoutRef.current), []);
 
   const flashCopied = useCallback(() => {
     setCopied(true);
@@ -41,41 +44,56 @@ export function DataTransfer({ accounts, onImport, onCancel }: DataTransferProps
   }, []);
 
   const handleExportFile = useCallback(async () => {
-    const json = exportAsJson(accounts);
-    const ok = await platform.saveToFile(
-      json,
-      `goose-2fa-backup-${new Date().toISOString().slice(0, 10)}.json`,
-    );
-    if (ok) flashExported();
-  }, [accounts, flashExported, platform]);
+    setError("");
+    try {
+      const json = exportAsJson(accounts, groups);
+      const ok = await platform.saveToFile(
+        json,
+        `goose-2fa-backup-${new Date().toISOString().slice(0, 10)}.json`,
+      );
+      if (ok) flashExported();
+    } catch {
+      setError("备份保存失败，请检查文件权限后重试");
+    }
+  }, [accounts, flashExported, groups, platform]);
 
   const handleCopyUris = useCallback(async () => {
-    const uris = exportAsUris(accounts);
-    await platform.copyText(uris);
-    flashCopied();
+    setError("");
+    try {
+      const uris = exportAsUris(accounts);
+      await platform.copyText(uris);
+      flashCopied();
+    } catch {
+      setError("复制失败，请检查剪贴板权限后重试");
+    }
   }, [accounts, flashCopied, platform]);
 
   const processImportText = useCallback(
     (text: string) => {
       setError("");
-      const parsed = parseImportData(text);
-      if (!parsed || parsed.length === 0) {
+      const bundle = parseImportBundle(text);
+      if (!bundle || bundle.accounts.length === 0) {
         setError("未找到有效的账户数据");
         return;
       }
-      const { newAccounts, dupeCount } = deduplicateImports(parsed, accounts);
+      const { newAccounts, dupeCount } = deduplicateImports(bundle.accounts, accounts);
       if (newAccounts.length === 0) {
         setError(`所有 ${dupeCount} 个账户已存在`);
         return;
       }
-      setView({ kind: "preview", all: parsed, fresh: newAccounts, dupes: dupeCount });
+      setView({ kind: "preview", fresh: newAccounts, groups: bundle.groups, dupes: dupeCount });
     },
     [accounts],
   );
 
   const handleOpenFile = useCallback(async () => {
-    const content = await platform.readFromFile();
-    if (content) processImportText(content);
+    setError("");
+    try {
+      const content = await platform.readFromFile();
+      if (content) processImportText(content);
+    } catch {
+      setError("读取备份文件失败");
+    }
   }, [processImportText, platform]);
 
   const handleClipboardImport = useCallback(async () => {
@@ -94,7 +112,7 @@ export function DataTransfer({ accounts, onImport, onCancel }: DataTransferProps
 
   const handleConfirmImport = useCallback(() => {
     if (view.kind !== "preview") return;
-    onImport(view.fresh);
+    onImport(view.fresh, view.groups);
     setView({ kind: "done", count: view.fresh.length });
   }, [view, onImport]);
 
@@ -110,7 +128,7 @@ export function DataTransfer({ accounts, onImport, onCancel }: DataTransferProps
           >
             <ArrowLeft size={17} />
           </button>
-          <h2 className="flex-1 text-[15px] font-semibold tracking-tight text-fg">
+          <h2 className="flex-1 text-[15px] font-serif font-semibold tracking-tight text-fg">
             确认导入
           </h2>
         </div>
@@ -132,7 +150,6 @@ export function DataTransfer({ accounts, onImport, onCancel }: DataTransferProps
               <div
                 key={i}
                 className="cell-enter flex items-center gap-3 rounded-cell px-3.5 py-2.5"
-                style={{ animationDelay: `${i * 30}ms` }}
               >
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-subtle text-[11px] font-semibold uppercase text-accent">
                   {(a.issuer || a.name).slice(0, 2)}
@@ -175,7 +192,7 @@ export function DataTransfer({ accounts, onImport, onCancel }: DataTransferProps
   if (view.kind === "done") {
     return (
       <div className="slide-in flex flex-1 flex-col items-center justify-center gap-4 px-8 py-16">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-copied/10">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-copied-subtle">
           <Check size={28} className="text-copied" strokeWidth={1.5} />
         </div>
         <div className="text-center">
@@ -207,7 +224,7 @@ export function DataTransfer({ accounts, onImport, onCancel }: DataTransferProps
         >
           <ArrowLeft size={17} />
         </button>
-        <h2 className="flex-1 text-[15px] font-semibold tracking-tight text-fg">
+        <h2 className="flex-1 text-[15px] font-serif font-semibold tracking-tight text-fg">
           数据管理
         </h2>
       </div>
@@ -222,11 +239,14 @@ export function DataTransfer({ accounts, onImport, onCancel }: DataTransferProps
           <p className="mb-3 text-[12px] leading-relaxed text-fg-muted">
             将{accounts.length > 0 ? ` ${accounts.length} 个` : "所有"}账户保存为备份
           </p>
+          <p className="mb-3 rounded-lg bg-surface-hover px-3 py-2 text-[11.5px] leading-relaxed text-fg-muted">
+            备份与 OTP 链接包含可生成验证码的密钥，请只保存到可信位置。
+          </p>
           <div className="flex gap-2">
             <button
               onClick={handleExportFile}
               disabled={accounts.length === 0}
-              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover hover:border-fg-faint/30 disabled:opacity-40"
+              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-border-strong hover:bg-surface-hover disabled:opacity-40"
             >
               {exported ? (
                 <>
@@ -243,7 +263,7 @@ export function DataTransfer({ accounts, onImport, onCancel }: DataTransferProps
             <button
               onClick={handleCopyUris}
               disabled={accounts.length === 0}
-              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover hover:border-fg-faint/30 disabled:opacity-40"
+              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-border-strong hover:bg-surface-hover disabled:opacity-40"
             >
               {copied ? (
                 <>
@@ -275,14 +295,14 @@ export function DataTransfer({ accounts, onImport, onCancel }: DataTransferProps
           <div className="flex gap-2">
             <button
               onClick={handleOpenFile}
-              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover hover:border-fg-faint/30"
+              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-border-strong hover:bg-surface-hover"
             >
               <FileUp size={14} />
               选择文件
             </button>
             <button
               onClick={handleClipboardImport}
-              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:bg-surface-hover hover:border-fg-faint/30"
+              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-border-strong hover:bg-surface-hover"
             >
               <Copy size={14} />
               从剪贴板
@@ -291,7 +311,7 @@ export function DataTransfer({ accounts, onImport, onCancel }: DataTransferProps
         </section>
 
         {error && (
-          <p className="fade-in rounded-lg bg-timer-low/10 px-3 py-2 text-[12px] text-timer-low">
+          <p role="alert" className="fade-in rounded-lg bg-danger-soft px-3 py-2 text-[12px] text-timer-low">
             {error}
           </p>
         )}

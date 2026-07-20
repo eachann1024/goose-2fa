@@ -35,7 +35,8 @@ function pruneLogs(): void {
 }
 
 function addLog(level: LogEntry["level"], message: string, data?: unknown): void {
-  const logs = readLogs();
+  const cutoff = Date.now() - MAX_AGE;
+  const logs = readLogs().filter((entry) => entry.timestamp > cutoff);
   logs.push({ timestamp: Date.now(), level, message, data });
   if (logs.length > MAX_ENTRIES) {
     writeLogs(logs.slice(-MAX_ENTRIES));
@@ -62,6 +63,3 @@ export const logger = {
 
 // 启动时清理一次过期日志
 pruneLogs();
-
-// 每 30 分钟自动清理
-setInterval(pruneLogs, MAX_AGE);
