@@ -101,12 +101,13 @@ export default function App() {
     const handleEnter = (e: Event) => {
       const detail = (e as CustomEvent<PluginEnterDetail>).detail;
       load();
-      if (detail?.code === "quick" || detail?.code === "2fa") {
+      if (detail?.code === "quick") {
         const raw = (detail?.payload ?? "").trim();
         const query = raw.replace(/^(2fa|otp|验证码)\s+/i, "").trim();
         setQuickQuery(query);
         setQuickMode(true);
       } else {
+        setQuickQuery("");
         setQuickMode(false);
         setSearchQuery("");
       }
@@ -287,6 +288,7 @@ export default function App() {
             onDetail={handleOpenDetail}
             onIncrement={incrementCounter}
             onReorder={reorderAccounts}
+            onMoveToGroup={updateAccountGroup}
             onAdd={() => { setAddFormAction(undefined); setShowAddForm(true); }}
             onClipboardImport={() => { setAddFormAction("clipboard"); setShowAddForm(true); }}
             onScreenCapture={() => { setAddFormAction("capture"); setShowAddForm(true); }}

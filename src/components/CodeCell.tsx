@@ -38,7 +38,11 @@ export function CodeCell({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: account.id, disabled: !sortable });
+  } = useSortable({
+    id: `account:${account.id}`,
+    disabled: !sortable,
+    data: { type: "account", accountId: account.id },
+  });
 
   useEffect(() => () => clearTimeout(timeoutRef.current), []);
 

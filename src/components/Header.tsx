@@ -86,7 +86,12 @@ export function Header({
   };
 
   return (
-    <header className="flex h-[57px] shrink-0 items-center gap-2 px-4">
+    <header
+      className={`absolute top-0 z-[4] flex h-[45px] items-center gap-2 px-4 ${
+        searching ? "inset-x-0 bg-bg" : "right-0"
+      }`}
+    >
+      <h1 className="sr-only">验证码</h1>
       {searching ? (
         <InputGroup className="flex-1 h-[33px]">
           <InputGroupAddon>
@@ -113,9 +118,6 @@ export function Header({
         </InputGroup>
       ) : (
         <>
-          <h1 className="flex-1 text-[15px] font-serif font-semibold tracking-tight text-fg">
-            验证码
-          </h1>
           {hasAccounts && (
             <>
               <button

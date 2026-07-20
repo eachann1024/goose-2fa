@@ -121,8 +121,34 @@
     outline-offset: 2px;
   }
 
+  /* 文本编辑控件不显示额外焦点外圈；按钮等操作控件仍保留键盘焦点提示。 */
+  input:focus,
+  input:focus-visible,
+  textarea:focus,
+  textarea:focus-visible,
+  select:focus,
+  select:focus-visible,
+  [contenteditable="true"]:focus,
+  [contenteditable="true"]:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
   input, textarea, select {
     border-width: 1px;
+  }
+
+  /* 分组编辑器是一个复合控件，焦点由外层胶囊统一承载。 */
+  .group-name-input {
+    border-width: 0;
+  }
+
+  /* 拖动后 dnd-kit 会把焦点还给手柄，用内嵌反馈避免突兀的外圈。 */
+  .drag-handle:focus-visible {
+    outline: none !important;
+    background: var(--color-accent-subtle);
+    color: var(--color-accent);
+    box-shadow: inset 0 0 0 1px var(--color-accent-border);
   }
 
   input::placeholder {

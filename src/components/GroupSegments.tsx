@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, FolderPlus, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useDroppable } from "@dnd-kit/core";
 import type { GroupTally } from "@/lib/groups";
-import { UNGROUPED_KEY } from "@/lib/groups";
+import { MAX_GROUP_NAME_LENGTH, UNGROUPED_KEY } from "@/lib/groups";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +15,7 @@ interface GroupSegmentsProps {
   groups: GroupTally[];
   totalCount: number;
   selected: string | null;
+  dropEnabled: boolean;
   onSelect: (id: string | null) => void;
   onCreate: (name: string) => string | null;
   onRename: (id: string, name: string) => boolean;
@@ -24,6 +26,7 @@ export function GroupSegments({
   groups,
   totalCount,
   selected,
+  dropEnabled,
   onSelect,
   onCreate,
   onRename,
@@ -84,10 +87,10 @@ export function GroupSegments({
   if (!showRail) return null;
 
   return (
-    <div className="group-segments shrink-0 border-b border-border bg-bg px-3 pb-2 pt-0.5">
+    <div className="group-segments flex min-h-[45px] shrink-0 flex-col justify-center border-b border-border bg-bg py-2 pl-3">
       <div
         ref={scrollerRef}
-        className="flex items-center gap-1 overflow-x-auto scrollbar-none"
+        className="flex items-center gap-1 overflow-x-auto pr-[11.75rem] scrollbar-none [scroll-padding-left:0.75rem] [scroll-padding-right:11.75rem]"
         role="tablist"
         aria-label="账户分组"
       >
@@ -119,8 +122,8 @@ export function GroupSegments({
                     setGroupError("");
                   }
                 }}
-                className="w-[72px] bg-transparent text-[11px] text-fg outline-none"
-                maxLength={20}
+                className="group-name-input w-[72px] bg-transparent text-[11px] text-fg"
+                maxLength={MAX_GROUP_NAME_LENGTH}
                 aria-label="重命名分组"
               />
               <button
@@ -149,11 +152,14 @@ export function GroupSegments({
                 label={g.name}
                 count={g.count}
                 active={selected === g.id}
+                dropEnabled={dropEnabled}
+                dropGroupId={g.id}
+                hasMenu
                 onClick={() => { setGroupError(""); onSelect(g.id); }}
               />
               <DropdownMenu>
                 <DropdownMenuTrigger
-                  className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-surface text-fg-faint opacity-0 ring-1 ring-border transition-opacity hover:text-fg focus-visible:opacity-100 group-hover/seg:opacity-100 group-focus-within/seg:opacity-100 data-[popup-open]:opacity-100"
+                  className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-fg-faint opacity-0 transition-[color,background-color,opacity] hover:bg-bg hover:text-fg focus-visible:opacity-100 group-hover/seg:opacity-100 group-focus-within/seg:opacity-100 data-[popup-open]:bg-bg data-[popup-open]:opacity-100"
                   aria-label={`${g.name} 分组菜单`}
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -185,11 +191,13 @@ export function GroupSegments({
           ),
         )}
 
-        {ungrouped && (ungrouped.count > 0 || selected === UNGROUPED_KEY) && (
+        {ungrouped && (ungrouped.count > 0 || selected === UNGROUPED_KEY || dropEnabled) && (
           <SegmentChip
             label={ungrouped.name}
             count={ungrouped.count}
             active={selected === UNGROUPED_KEY}
+            dropEnabled={dropEnabled}
+            dropGroupId={null}
             onClick={() => { setGroupError(""); onSelect(UNGROUPED_KEY); }}
             muted
           />
@@ -216,8 +224,8 @@ export function GroupSegments({
                 }
               }}
               placeholder="分组名"
-              className="w-[72px] bg-transparent text-[11px] text-fg outline-none placeholder:text-fg-faint"
-              maxLength={20}
+              className="group-name-input w-[72px] bg-transparent text-[11px] text-fg placeholder:text-fg-faint"
+              maxLength={MAX_GROUP_NAME_LENGTH}
               aria-label="新建分组名称"
             />
             <button type="submit" className="rounded-full p-0.5 text-accent" aria-label="创建分组">
@@ -253,7 +261,7 @@ export function GroupSegments({
       )}
       {deleteCandidate && (
         <div role="alertdialog" aria-label="确认删除分组" className="mt-2 flex items-center gap-2 rounded-lg bg-surface-hover px-2.5 py-2">
-          <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-fg-muted">
+          <p className="min-w-0 flex-1 break-words text-[11px] leading-relaxed text-fg-muted">
             删除“{deleteCandidate.name}”？{deleteCandidate.count > 0 ? `${deleteCandidate.count} 个账户会移到未分组。` : "此分组没有账户。"}
           </p>
           <button type="button" onClick={() => setDeleteCandidate(null)} className="min-h-8 rounded-lg px-2 text-[11px] text-fg-muted">取消</button>
@@ -270,19 +278,35 @@ function SegmentChip({
   active,
   onClick,
   muted,
+  dropEnabled = false,
+  dropGroupId,
+  hasMenu = false,
 }: {
   label: string;
   count: number;
   active: boolean;
   onClick: () => void;
   muted?: boolean;
+  dropEnabled?: boolean;
+  dropGroupId?: string | null;
+  hasMenu?: boolean;
 }) {
+  const isDropTarget = dropGroupId !== undefined;
+  const { isOver, setNodeRef } = useDroppable({
+    id: isDropTarget ? `group-drop:${dropGroupId ?? UNGROUPED_KEY}` : `group-drop-disabled:${label}`,
+    disabled: !isDropTarget || !dropEnabled,
+    data: { type: "group", groupId: dropGroupId ?? null },
+  });
+
   return (
     <button
+      ref={setNodeRef}
       type="button"
       role="tab"
       tabIndex={active ? 0 : -1}
       aria-selected={active}
+      aria-label={`${label} ${count}`}
+      title={label}
       data-active={active ? "true" : undefined}
       onClick={onClick}
       onKeyDown={(event) => {
@@ -298,8 +322,12 @@ function SegmentChip({
         tabs[nextIndex]?.focus();
         tabs[nextIndex]?.click();
       }}
-      className={`group/chip flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-left transition-colors ${
-        active
+      className={`group/chip flex h-7 shrink-0 items-center gap-1.5 rounded-full text-left transition-[color,background-color,box-shadow,transform] ${
+        hasMenu ? "pl-3.5 pr-9" : "px-3.5"
+      } ${
+        isOver
+          ? "scale-[1.04] bg-accent text-accent-fg shadow-[0_0_0_2px_var(--color-bg),0_0_0_4px_var(--color-accent)]"
+          : active
           ? "bg-accent-subtle text-accent"
           : muted
             ? "text-fg-faint hover:bg-surface-hover hover:text-fg-muted"
