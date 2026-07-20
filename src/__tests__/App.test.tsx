@@ -45,6 +45,12 @@ function renderApp(adapter: PlatformAdapter) {
   );
 }
 
+function enterPlugin(code: string, payload = "") {
+  window.dispatchEvent(new CustomEvent("goose-2fa:plugin-enter", {
+    detail: { code, type: "text", payload },
+  }));
+}
+
 beforeEach(() => {
   localStorage.clear();
   document.documentElement.className = "";
@@ -109,5 +115,55 @@ describe("App 核心流程", () => {
     expect(await screen.findByRole("heading", { name: "添加账户" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "账户名称" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "密钥" })).toBeInTheDocument();
+  });
+
+  it("账户只按顶部分组筛选，不再按发行方生成可收起的二级分组", async () => {
+    const openAiAccount: AccountData = {
+      ...account,
+      id: "account-2",
+      issuer: "OpenAI",
+      name: "bob@example.com",
+    };
+    renderApp(makeAdapter(() => [account, openAiAccount]));
+    await screen.findByRole("heading", { name: "验证码" });
+
+    expect(screen.getAllByRole("button", { name: "详情" })).toHaveLength(2);
+    expect(screen.queryByText("收起")).not.toBeInTheDocument();
+    expect(screen.queryByText("展开")).not.toBeInTheDocument();
+    expect(screen.queryByText("OpenAI")).not.toBeInTheDocument();
+  });
+
+  it("从 2FA 主命令进入时不把命令名当作搜索词，并保留管理菜单", async () => {
+    renderApp(makeAdapter(() => [account]));
+    await screen.findByRole("heading", { name: "验证码" });
+
+    act(() => useAccounts.getState().setSearchQuery("旧搜索"));
+    act(() => enterPlugin("2fa", "2FA"));
+
+    expect(await screen.findByRole("heading", { name: "验证码" })).toBeInTheDocument();
+    expect(screen.queryByText(/没有账户匹配/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "菜单" })).toBeInTheDocument();
+    expect(useAccounts.getState().searchQuery).toBe("");
+  });
+
+  it("只有快速取码命令进入快速模式，管理命令可返回主界面", async () => {
+    const adapter = makeAdapter(() => [account]);
+    adapter.setSubInput = vi.fn();
+    adapter.removeSubInput = vi.fn();
+    renderApp(adapter);
+    await screen.findByRole("heading", { name: "验证码" });
+
+    act(() => enterPlugin("quick", "2fa GitHub"));
+    expect(await screen.findByRole("listbox", { name: "验证码账户" })).toBeInTheDocument();
+    expect(adapter.setSubInput).toHaveBeenCalledWith(
+      expect.any(Function),
+      "搜索账户名、发行方或备注",
+      "GitHub",
+    );
+
+    act(() => enterPlugin("manage", "管理鹅的验证"));
+    expect(await screen.findByRole("heading", { name: "验证码" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "菜单" })).toBeInTheDocument();
+    expect(adapter.removeSubInput).toHaveBeenCalled();
   });
 });

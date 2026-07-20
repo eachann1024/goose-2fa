@@ -90,4 +90,48 @@ describe("账户存储", () => {
       expect(adapter.showNotification).toHaveBeenCalledWith("账户保存失败，请检查存储权限后重试");
     });
   });
+
+  it("可把账户移动到其他分组或未分组，重复投放不会保存", async () => {
+    const saveAccounts = vi.fn();
+    initPlatform(makeAdapter(saveAccounts));
+    useAccounts.setState({
+      groups: [{ id: "work", name: "工作", order: 0, createdAt: 1 }],
+      accounts: [{
+        ...input,
+        id: "account-1",
+        createdAt: 1,
+        groupId: null,
+      }],
+    });
+
+    useAccounts.getState().updateAccountGroup("account-1", "work");
+    expect(useAccounts.getState().accounts[0]?.groupId).toBe("work");
+
+    await vi.waitFor(() => expect(saveAccounts).toHaveBeenCalledTimes(1));
+    useAccounts.getState().updateAccountGroup("account-1", "work");
+    expect(saveAccounts).toHaveBeenCalledTimes(1);
+
+    useAccounts.getState().updateAccountGroup("account-1", null);
+    expect(useAccounts.getState().accounts[0]?.groupId).toBeNull();
+    await vi.waitFor(() => expect(saveAccounts).toHaveBeenCalledTimes(2));
+  });
+
+  it("拒绝未知分组，避免把账户误移到未分组", () => {
+    const saveAccounts = vi.fn();
+    initPlatform(makeAdapter(saveAccounts));
+    useAccounts.setState({
+      accounts: [{
+        ...input,
+        id: "account-1",
+        createdAt: 1,
+        groupId: "work",
+      }],
+      groups: [{ id: "work", name: "工作", order: 0, createdAt: 1 }],
+    });
+
+    useAccounts.getState().updateAccountGroup("account-1", "missing");
+
+    expect(useAccounts.getState().accounts[0]?.groupId).toBe("work");
+    expect(saveAccounts).not.toHaveBeenCalled();
+  });
 });

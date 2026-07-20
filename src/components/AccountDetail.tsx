@@ -226,7 +226,7 @@ export function AccountDetail({
             onBlur={handleNoteSave}
             onKeyDown={handleNoteKeyDown}
             placeholder={originalName}
-            className="h-[44px] border-accent-border px-3.5 py-0 text-[18px] font-semibold leading-none focus:border-accent"
+            className="h-[44px] px-3.5 py-0 text-[18px] font-semibold leading-none"
             style={{ caretColor: "var(--color-accent)" }}
           />
         ) : (
@@ -364,7 +364,7 @@ export function AccountDetail({
             const v = e.target.value;
             onUpdateGroup(account.id, v ? v : null);
           }}
-          className="h-9 w-full rounded-lg border border-border bg-input px-2.5 text-[12.5px] text-fg outline-none transition-colors focus:border-accent-border"
+          className="h-9 w-full rounded-lg border border-border bg-input px-2.5 text-[12.5px] text-fg outline-none transition-colors"
           aria-label="移动到分组"
         >
           <option value="">未分组</option>

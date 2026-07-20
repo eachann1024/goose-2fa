@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { AccountData, VaultGroup } from "../types";
-import { UNCATEGORIZED_LABEL } from "../categories";
 import {
+  MAX_GROUP_NAME_LENGTH,
   UNGROUPED_KEY,
   buildGroupTallies,
-  buildIssuerSections,
   filterByGroup,
   resolveSelectedGroup,
   normalizeGroupName,
@@ -94,25 +93,14 @@ describe("resolveSelectedGroup", () => {
   });
 });
 
-describe("buildIssuerSections", () => {
-  it("按首次出现顺序分节，未分类置底", () => {
-    const accounts = [
-      makeAccount({ id: "1", issuer: "OpenAI" }),
-      makeAccount({ id: "2", issuer: "GitHub" }),
-      makeAccount({ id: "3", issuer: "OpenAI" }),
-      makeAccount({ id: "4", issuer: "" }),
-      makeAccount({ id: "5", issuer: "GitHub" }),
-    ];
-    const sections = buildIssuerSections(accounts);
-    expect(sections.map((s) => s.key)).toEqual(["OpenAI", "GitHub", UNCATEGORIZED_LABEL]);
-    expect(sections[0]?.accounts.map((a) => a.id)).toEqual(["1", "3"]);
-    expect(sections[1]?.accounts.map((a) => a.id)).toEqual(["2", "5"]);
-  });
-});
-
 describe("group helpers", () => {
   it("normalizeGroupName 去首尾空白并压缩中间空格", () => {
     expect(normalizeGroupName("  工  作  ")).toBe("工 作");
+  });
+
+  it("normalizeGroupName 将名称限制在界面可承载的最大长度", () => {
+    const longName = "这是一段明显超过二十个字符限制的一级分组名称";
+    expect(normalizeGroupName(longName)).toHaveLength(MAX_GROUP_NAME_LENGTH);
   });
 
   it("nextGroupOrder 递增", () => {

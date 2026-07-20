@@ -321,9 +321,10 @@ export const useAccounts = create<AccountsState>((set, get) => ({
   },
 
   updateAccountGroup: (id, groupId) => {
-    const safeGroupId = groupId && get().groups.some((group) => group.id === groupId)
-      ? groupId
-      : null;
+    if (groupId !== null && !get().groups.some((group) => group.id === groupId)) return;
+    const safeGroupId = groupId;
+    const current = get().accounts.find((account) => account.id === id);
+    if (!current || (current.groupId ?? null) === safeGroupId) return;
     const next = get().accounts.map((a) =>
       a.id === id ? { ...a, groupId: safeGroupId } : a,
     );

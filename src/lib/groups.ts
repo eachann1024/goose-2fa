@@ -1,8 +1,8 @@
 import type { AccountData, VaultGroup } from "./types";
-import { UNCATEGORIZED_LABEL, categoryKey } from "./categories";
 
 /** 一级「未分组」筛选键（不是真实 VaultGroup.id） */
 export const UNGROUPED_KEY = "__ungrouped__";
+export const MAX_GROUP_NAME_LENGTH = 20;
 
 export function isUngrouped(account: AccountData): boolean {
   return !account.groupId;
@@ -81,43 +81,11 @@ export function resolveSelectedGroup(
   return null;
 }
 
-export interface IssuerSection {
-  key: string;
-  label: string;
-  accounts: AccountData[];
-}
-
-/** 二级：按 issuer 分节，保留列表中首次出现顺序；未分类置底。 */
-export function buildIssuerSections(accounts: AccountData[]): IssuerSection[] {
-  const map = new Map<string, AccountData[]>();
-  const order: string[] = [];
-
-  for (const account of accounts) {
-    const key = categoryKey(account);
-    let list = map.get(key);
-    if (!list) {
-      list = [];
-      map.set(key, list);
-      order.push(key);
-    }
-    list.push(account);
-  }
-
-  const keys = order.filter((k) => k !== UNCATEGORIZED_LABEL);
-  if (map.has(UNCATEGORIZED_LABEL)) keys.push(UNCATEGORIZED_LABEL);
-
-  return keys.map((key) => ({
-    key,
-    label: key,
-    accounts: map.get(key) ?? [],
-  }));
-}
-
 export function nextGroupOrder(groups: VaultGroup[]): number {
   if (groups.length === 0) return 0;
   return Math.max(...groups.map((g) => g.order)) + 1;
 }
 
 export function normalizeGroupName(name: string): string {
-  return name.trim().replace(/\s+/g, " ");
+  return name.trim().replace(/\s+/g, " ").slice(0, MAX_GROUP_NAME_LENGTH);
 }
