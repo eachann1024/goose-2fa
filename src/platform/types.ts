@@ -1,4 +1,4 @@
-import type { AccountData } from "@/lib/types";
+import type { AccountData, VaultGroup } from "@/lib/types";
 
 export interface ClipboardImageData {
   width: number;
@@ -21,6 +21,8 @@ export interface PluginEnterDetail {
 export interface PlatformAdapter {
   loadAccounts(): AccountData[] | Promise<AccountData[]>;
   saveAccounts(accounts: AccountData[]): void | Promise<void>;
+  loadGroups(): VaultGroup[] | Promise<VaultGroup[]>;
+  saveGroups(groups: VaultGroup[]): void | Promise<void>;
   copyText(text: string): void | Promise<void>;
   readClipboardText(): string | Promise<string>;
   readClipboardImage(): ClipboardImageData | null | Promise<ClipboardImageData | null>;

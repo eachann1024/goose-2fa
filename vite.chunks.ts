@@ -1,5 +1,5 @@
 /**
- * vendor 分包策略（uTools / Tauri 共用）。
+ * uTools vendor 分包策略。
  *
  * Vite 8 底层用 rolldown，rollup 的 `output.manualChunks` 会被忽略，
  * 必须用 rolldown 原生的 `output.codeSplitting.groups`

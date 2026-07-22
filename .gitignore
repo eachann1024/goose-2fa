@@ -4,10 +4,8 @@ dist
 .DS_Store
 *.tsbuildinfo
 
-# 平台构建输出
+# 构建输出
 dist-utools/
-dist-tauri/
-src-tauri/target/
 !CLAUDE.md
 !AGENTS.md
 

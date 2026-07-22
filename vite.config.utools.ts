@@ -23,13 +23,6 @@ export default mergeConfig(baseConfig, {
       output: {
         codeSplitting: { groups: codeSplittingGroups },
       },
-      external: [
-        "@tauri-apps/api/core",
-        "@tauri-apps/api/window",
-        "@tauri-apps/plugin-clipboard-manager",
-        "@tauri-apps/plugin-dialog",
-        "@tauri-apps/plugin-notification",
-      ],
     },
     chunkSizeWarningLimit: 1000,
     reportCompressedSize: false,

@@ -1,31 +1,41 @@
 if (typeof window !== "undefined" && typeof utools !== "undefined") {
   window.utools = utools;
 
-  const STORAGE_KEY = "goose-2fa-accounts";
+  const ACCOUNTS_KEY = "goose-2fa-accounts";
+  const GROUPS_KEY = "goose-2fa-groups";
 
-  const readAccounts = () => {
+  const readJsonArray = (key, label) => {
     try {
       if (typeof utools?.dbStorage?.getItem === "function") {
-        const raw = utools.dbStorage.getItem(STORAGE_KEY);
-        if (typeof raw === "string") return JSON.parse(raw);
+        const raw = utools.dbStorage.getItem(key);
+        if (typeof raw === "string") {
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : [];
+        }
+        if (Array.isArray(raw)) return raw;
       }
     } catch (err) {
-      console.error("[goose-2fa] read accounts failed:", err);
+      console.error(`[goose-2fa] read ${label} failed:`, err);
     }
     return [];
   };
 
-  const writeAccounts = (accounts) => {
+  const writeJsonArray = (key, value, label) => {
     try {
       if (typeof utools?.dbStorage?.setItem === "function") {
-        utools.dbStorage.setItem(STORAGE_KEY, JSON.stringify(accounts));
+        utools.dbStorage.setItem(key, JSON.stringify(value));
         return true;
       }
     } catch (err) {
-      console.error("[goose-2fa] write accounts failed:", err);
+      console.error(`[goose-2fa] write ${label} failed:`, err);
     }
     return false;
   };
+
+  const readAccounts = () => readJsonArray(ACCOUNTS_KEY, "accounts");
+  const writeAccounts = (accounts) => writeJsonArray(ACCOUNTS_KEY, accounts, "accounts");
+  const readGroups = () => readJsonArray(GROUPS_KEY, "groups");
+  const writeGroups = (groups) => writeJsonArray(GROUPS_KEY, groups, "groups");
 
   const readClipboardImage = () => {
     try {
@@ -124,6 +134,8 @@ if (typeof window !== "undefined" && typeof utools !== "undefined") {
   window.goose2fa = {
     loadAccounts: readAccounts,
     saveAccounts: writeAccounts,
+    loadGroups: readGroups,
+    saveGroups: writeGroups,
     copyText: (text) => {
       safeCall(utools?.copyText, text);
     },

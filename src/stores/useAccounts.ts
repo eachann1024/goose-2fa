@@ -22,7 +22,8 @@ export type ViewMode = "grid" | "compact" | "list";
 
 const VIEW_MODE_KEY = "goose-2fa-view";
 const GROUP_KEY = "goose-2fa-group";
-const GROUPS_KEY = "goose-2fa-groups";
+/** 旧版分组曾落在 localStorage；迁移到平台存储后删除 */
+const LEGACY_GROUPS_KEY = "goose-2fa-groups";
 const AMBIENT_KEY = "goose-2fa-ambient";
 /** 兼容旧 issuer 侧栏选中，读取一次后清除 */
 const LEGACY_CATEGORY_KEY = "goose-2fa-category";
@@ -43,27 +44,47 @@ function loadSelectedGroup(): string | null {
   return null;
 }
 
-function loadGroups(): VaultGroup[] {
+function normalizeGroups(values: unknown): VaultGroup[] {
+  if (!Array.isArray(values)) return [];
+  return values
+    .filter((g): g is VaultGroup => {
+      if (!g || typeof g !== "object") return false;
+      const group = g as VaultGroup;
+      return typeof group.id === "string" && typeof group.name === "string";
+    })
+    .map((g, i) => ({
+      id: g.id,
+      name: g.name,
+      order: typeof g.order === "number" ? g.order : i,
+      createdAt: typeof g.createdAt === "number" ? g.createdAt : Date.now(),
+    }));
+}
+
+function readLegacyLocalGroups(): VaultGroup[] {
   try {
-    const raw = localStorage.getItem(GROUPS_KEY);
+    const raw = localStorage.getItem(LEGACY_GROUPS_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as VaultGroup[];
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((g) => g && typeof g.id === "string" && typeof g.name === "string")
-      .map((g, i) => ({
-        id: g.id,
-        name: g.name,
-        order: typeof g.order === "number" ? g.order : i,
-        createdAt: typeof g.createdAt === "number" ? g.createdAt : Date.now(),
-      }));
+    return normalizeGroups(JSON.parse(raw));
   } catch {
     return [];
   }
 }
 
+function clearLegacyLocalGroups() {
+  localStorage.removeItem(LEGACY_GROUPS_KEY);
+}
+
 function persistGroups(groups: VaultGroup[]) {
-  localStorage.setItem(GROUPS_KEY, JSON.stringify(groups));
+  const snapshot = groups.map((group) => ({ ...group }));
+  persistQueue = persistQueue
+    .then(() => Promise.resolve(platform.saveGroups(snapshot)))
+    .then(() => {
+      clearLegacyLocalGroups();
+    })
+    .catch((err) => {
+      console.error("[goose-2fa] persist groups failed:", err);
+      platform.showNotification("分组保存失败，请检查存储权限后重试");
+    });
 }
 
 function loadAmbientEnabled(): boolean {
@@ -150,7 +171,7 @@ function loadTrashFromStorage(): AccountData[] {
 export const useAccounts = create<AccountsState>((set, get) => ({
   accounts: [],
   trash: [],
-  groups: loadGroups(),
+  groups: [],
   searchQuery: "",
   showAddForm: false,
   showDataTransfer: false,
@@ -170,7 +191,16 @@ export const useAccounts = create<AccountsState>((set, get) => ({
     if (get().loadStatus === "loading") return;
     set({ loadStatus: "loading", loadError: null });
     try {
-      const groups = loadGroups();
+      const platformGroups = normalizeGroups(await Promise.resolve(platform.loadGroups()));
+      const legacyGroups = readLegacyLocalGroups();
+      // 平台存储优先；若平台尚无分组，迁移旧 localStorage 数据
+      let groups = platformGroups;
+      if (groups.length === 0 && legacyGroups.length > 0) {
+        groups = legacyGroups;
+        persistGroups(groups);
+      } else if (platformGroups.length > 0 && legacyGroups.length > 0) {
+        clearLegacyLocalGroups();
+      }
       const validGroupIds = new Set(groups.map((group) => group.id));
       const trash = normalizeStoredAccounts(loadTrashFromStorage(), validGroupIds);
       const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
