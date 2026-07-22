@@ -1,4 +1,4 @@
-name: Build & Release
+name: Build uTools
 
 on:
   pull_request:
@@ -42,81 +42,3 @@ jobs:
           name: goose-2fa-utools
           path: dist-utools/
           if-no-files-found: error
-
-  build:
-    needs: quality
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: macos-latest
-            args: '--target aarch64-apple-darwin'
-            label: macos-aarch64
-          - platform: macos-latest
-            args: '--target x86_64-apple-darwin'
-            label: macos-x86_64
-          - platform: windows-latest
-            args: ''
-            label: windows
-          - platform: ubuntu-22.04
-            args: ''
-            label: linux
-
-    runs-on: ${{ matrix.platform }}
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri -> target
-
-      - name: Add macOS targets
-        if: matrix.platform == 'macos-latest'
-        run: |
-          rustup target add aarch64-apple-darwin
-          rustup target add x86_64-apple-darwin
-
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev patchelf libssl-dev libgtk-3-dev libayatana-appindicator3-dev
-
-      - name: Install bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Install frontend dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Build frontend
-        run: bunx vite build -c vite.config.tauri.ts
-
-      - name: Clear beforeBuildCommand
-        shell: bash
-        run: |
-          cd src-tauri
-          node -e "
-            const fs = require('fs');
-            const conf = JSON.parse(fs.readFileSync('tauri.conf.json', 'utf8'));
-            delete conf.build.beforeBuildCommand;
-            fs.writeFileSync('tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
-          "
-
-      - name: Build Tauri app
-        run: bunx tauri build ${{ matrix.args }}
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: goose-2fa-${{ matrix.label }}
-          path: |
-            src-tauri/target/release/bundle/
-            src-tauri/target/*/release/bundle/
-          if-no-files-found: warn

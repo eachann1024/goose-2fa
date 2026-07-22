@@ -18,6 +18,8 @@ function makeAdapter(saveAccounts: PlatformAdapter["saveAccounts"] = vi.fn()): P
   return {
     loadAccounts: vi.fn(() => []),
     saveAccounts,
+    loadGroups: vi.fn(() => []),
+    saveGroups: vi.fn(),
     copyText: vi.fn(),
     readClipboardText: vi.fn(() => ""),
     readClipboardImage: vi.fn(() => null),
@@ -133,5 +135,57 @@ describe("账户存储", () => {
 
     expect(useAccounts.getState().accounts[0]?.groupId).toBe("work");
     expect(saveAccounts).not.toHaveBeenCalled();
+  });
+});
+
+describe("分组存储", () => {
+  it("创建分组时写入平台存储，而不是只留在 localStorage", async () => {
+    const saveGroups = vi.fn();
+    const adapter = makeAdapter();
+    adapter.saveGroups = saveGroups;
+    initPlatform(adapter);
+
+    const groupId = useAccounts.getState().createGroup("工作");
+    expect(groupId).toBeTruthy();
+    await vi.waitFor(() => expect(saveGroups).toHaveBeenCalledTimes(1));
+    expect(saveGroups).toHaveBeenCalledWith([
+      expect.objectContaining({ id: groupId, name: "工作" }),
+    ]);
+    expect(localStorage.getItem("goose-2fa-groups")).toBeNull();
+  });
+
+  it("加载时优先使用平台分组，并迁移旧 localStorage 分组", async () => {
+    const saveGroups = vi.fn();
+    const legacy = [{ id: "legacy", name: "旧分组", order: 0, createdAt: 1 }];
+    localStorage.setItem("goose-2fa-groups", JSON.stringify(legacy));
+
+    const adapter = makeAdapter();
+    adapter.loadGroups = vi.fn(async () => []);
+    adapter.saveGroups = saveGroups;
+    initPlatform(adapter);
+
+    await useAccounts.getState().load();
+
+    expect(useAccounts.getState().groups).toEqual(legacy);
+    await vi.waitFor(() => expect(saveGroups).toHaveBeenCalledWith(legacy));
+    await vi.waitFor(() => expect(localStorage.getItem("goose-2fa-groups")).toBeNull());
+  });
+
+  it("平台已有分组时覆盖旧 localStorage 脏数据", async () => {
+    const platformGroups = [{ id: "cloud", name: "云端分组", order: 0, createdAt: 2 }];
+    localStorage.setItem(
+      "goose-2fa-groups",
+      JSON.stringify([{ id: "legacy", name: "旧分组", order: 0, createdAt: 1 }]),
+    );
+
+    const adapter = makeAdapter();
+    adapter.loadGroups = vi.fn(async () => platformGroups);
+    adapter.saveGroups = vi.fn();
+    initPlatform(adapter);
+
+    await useAccounts.getState().load();
+
+    expect(useAccounts.getState().groups).toEqual(platformGroups);
+    expect(localStorage.getItem("goose-2fa-groups")).toBeNull();
   });
 });

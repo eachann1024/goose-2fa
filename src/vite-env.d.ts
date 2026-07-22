@@ -10,6 +10,8 @@ interface ClipboardImageData {
 interface Goose2FA {
   loadAccounts: () => import("./lib/types").AccountData[];
   saveAccounts: (accounts: import("./lib/types").AccountData[]) => boolean;
+  loadGroups: () => import("./lib/types").VaultGroup[];
+  saveGroups: (groups: import("./lib/types").VaultGroup[]) => boolean;
   copyText: (text: string) => void;
   showNotification: (text: string) => void;
   readClipboardImage: () => ClipboardImageData | null;

@@ -1,20 +1,37 @@
-import type { AccountData } from "@/lib/types";
+import type { AccountData, VaultGroup } from "@/lib/types";
 import type { ClipboardImageData, PlatformAdapter } from "./types";
+
+const ACCOUNTS_KEY = "goose-2fa-accounts";
+const GROUPS_KEY = "goose-2fa-groups";
+
+function readJsonArray<T>(key: string): T[] {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 /** Web 兜底适配器，全部使用浏览器 API */
 export function createWebAdapter(): PlatformAdapter {
   return {
     loadAccounts(): AccountData[] {
-      try {
-        const raw = localStorage.getItem("goose-2fa-accounts");
-        return raw ? JSON.parse(raw) : [];
-      } catch {
-        return [];
-      }
+      return readJsonArray<AccountData>(ACCOUNTS_KEY);
     },
 
     saveAccounts(accounts: AccountData[]): void {
-      localStorage.setItem("goose-2fa-accounts", JSON.stringify(accounts));
+      localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+    },
+
+    loadGroups(): VaultGroup[] {
+      return readJsonArray<VaultGroup>(GROUPS_KEY);
+    },
+
+    saveGroups(groups: VaultGroup[]): void {
+      localStorage.setItem(GROUPS_KEY, JSON.stringify(groups));
     },
 
     async copyText(text: string): Promise<void> {

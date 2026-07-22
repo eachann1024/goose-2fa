@@ -1,4 +1,4 @@
-import type { AccountData } from "@/lib/types";
+import type { AccountData, VaultGroup } from "@/lib/types";
 import type { PlatformAdapter, SubInputHandler } from "./types";
 
 /** uTools 适配器，委托 window.goose2fa */
@@ -12,6 +12,14 @@ export function createUToolsAdapter(): PlatformAdapter {
 
     saveAccounts(accounts: AccountData[]): void {
       api.saveAccounts(accounts);
+    },
+
+    loadGroups(): VaultGroup[] {
+      return api.loadGroups?.() ?? [];
+    },
+
+    saveGroups(groups: VaultGroup[]): void {
+      api.saveGroups?.(groups);
     },
 
     copyText(text: string): void {

@@ -11,10 +11,6 @@ async function createAdapter(): Promise<PlatformAdapter> {
     const { createUToolsAdapter } = await import("./platform/utools");
     return createUToolsAdapter();
   }
-  if ((window as any).__TAURI_INTERNALS__) {
-    const { createTauriAdapter } = await import("./platform/tauri");
-    return createTauriAdapter();
-  }
   const { createWebAdapter } = await import("./platform/web");
   return createWebAdapter();
 }

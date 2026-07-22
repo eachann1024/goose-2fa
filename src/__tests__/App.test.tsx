@@ -24,6 +24,8 @@ function makeAdapter(loadAccounts: PlatformAdapter["loadAccounts"]): PlatformAda
   return {
     loadAccounts,
     saveAccounts: vi.fn(),
+    loadGroups: vi.fn(async () => []),
+    saveGroups: vi.fn(),
     copyText: vi.fn(),
     readClipboardText: vi.fn(() => ""),
     readClipboardImage: vi.fn(() => null),
