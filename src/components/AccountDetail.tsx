@@ -4,6 +4,13 @@ import { useOtpCode } from "@/hooks/useOtpCode";
 import { formatCode } from "@/lib/otp";
 import type { AccountData, VaultGroup } from "@/lib/types";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AccountDetailProps {
@@ -165,11 +172,7 @@ export function AccountDetail({
     });
   }
 
-  metaItems.push({
-    icon: <Clock size={13} />,
-    label: "添加时间",
-    value: formatCreatedAt(account.createdAt),
-  });
+  const createdAt = formatCreatedAt(account.createdAt);
 
   if (meta?.location) {
     metaItems.push({
@@ -196,6 +199,12 @@ export function AccountDetail({
   }
 
   const remark = account.remark ?? "";
+  const groupOptions = [
+    { value: null, label: "未分组" },
+    ...[...groups]
+      .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "zh"))
+      .map((group) => ({ value: group.id, label: group.name })),
+  ];
 
   return (
     <TooltipProvider delay={200}>
@@ -205,7 +214,7 @@ export function AccountDetail({
         <button
           autoFocus
           onClick={onClose}
-          className="rounded-lg p-2 text-fg-muted transition-colors hover:bg-surface hover:text-fg"
+          className="icon-control rounded-lg p-2 text-fg-muted"
           aria-label="返回"
         >
           <ArrowLeft size={17} />
@@ -232,7 +241,7 @@ export function AccountDetail({
         ) : (
           <button
             onClick={handleStartEditName}
-            className="group flex h-[44px] w-full min-w-0 items-center gap-2 rounded-cell border border-transparent px-3.5 text-left"
+            className="group flex h-[44px] w-full min-w-0 items-center gap-2 rounded-cell border border-transparent px-3.5 text-left transition-colors hover:border-border hover:bg-surface active:bg-surface-active"
           >
             {nameOverflow ? (
               <Tooltip>
@@ -276,7 +285,7 @@ export function AccountDetail({
           ) : (
             <button
               onClick={() => { setRemarkValue(remark); setEditingRemark(true); }}
-              className="group flex h-[32px] w-full items-center gap-2 rounded-cell border border-transparent px-3.5 text-left"
+              className="group flex h-[32px] w-full items-center gap-2 rounded-cell border border-transparent px-3.5 text-left transition-colors hover:border-border hover:bg-surface active:bg-surface-active"
             >
               <span className={`min-w-0 flex-1 truncate text-[12.5px] leading-none ${remark ? "text-fg-muted" : "text-fg-faint"}`}>
                 {remark || "添加备注"}
@@ -352,39 +361,55 @@ export function AccountDetail({
         </div>
       )}
 
-      {/* 分组归属 */}
-      <div className="mb-4 rounded-cell border bg-surface px-4 py-3">
-        <div className="mb-2 flex items-center gap-2">
-          <FolderOpen size={13} className="text-fg-faint" />
-          <span className="text-[11px] text-fg-faint">分组</span>
-        </div>
-        <select
-          value={account.groupId ?? ""}
-          onChange={(e) => {
-            const v = e.target.value;
-            onUpdateGroup(account.id, v ? v : null);
-          }}
-          className="h-9 w-full rounded-lg border border-border bg-input px-2.5 text-[12.5px] text-fg outline-none transition-colors"
-          aria-label="移动到分组"
-        >
-          <option value="">未分组</option>
-          {[...groups]
-            .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "zh"))
-            .map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-        </select>
-        {groups.length === 0 && (
-          <p className="mt-1.5 text-[11px] text-fg-faint">
-            在主界面顶部创建分组后，可在此归档账户
-          </p>
-        )}
+      {/* 分组与添加时间 */}
+      <div className="mb-4 grid grid-cols-2 gap-3">
+        <section className="flex min-w-0 flex-col rounded-cell border bg-surface px-3.5 py-3" aria-labelledby="account-group-label">
+          <div className="mb-2 flex items-center gap-2">
+            <FolderOpen size={13} className="text-fg-faint" />
+            <span id="account-group-label" className="text-[11px] text-fg-faint">分组</span>
+          </div>
+          <Select<string>
+            items={groupOptions}
+            value={account.groupId ?? null}
+            onValueChange={(value) => onUpdateGroup(account.id, value)}
+          >
+            <SelectTrigger
+              className="group/select h-9 w-full min-w-0 text-[12.5px]"
+              aria-label="移动到分组"
+            >
+              <SelectValue placeholder="未分组" />
+            </SelectTrigger>
+            <SelectContent align="start" alignItemWithTrigger={false}>
+              {groupOptions.map((option) => (
+                  <SelectItem key={option.value ?? "ungrouped"} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+          {groups.length === 0 && (
+            <p className="mt-2 text-[10.5px] leading-snug text-fg-faint">
+              可在主界面创建分组
+            </p>
+          )}
+        </section>
+
+        <section className="flex min-w-0 flex-col rounded-cell border bg-surface px-3.5 py-3" aria-labelledby="account-created-label">
+          <div className="mb-2 flex items-center gap-2">
+            <Clock size={13} className="text-fg-faint" />
+            <span id="account-created-label" className="text-[11px] text-fg-faint">添加时间</span>
+          </div>
+          <time
+            dateTime={new Date(account.createdAt).toISOString()}
+            className="break-words text-[12px] leading-relaxed text-fg-muted"
+          >
+            {createdAt}
+          </time>
+        </section>
       </div>
 
       {/* 元数据 */}
-      <div className="mb-6 rounded-cell border bg-surface p-4">
+      {metaItems.length > 0 && <div className="mb-6 rounded-cell border bg-surface p-4">
         <div className="flex flex-col gap-3">
           {metaItems.map((item) => (
             <div key={item.label} className="flex items-start gap-2.5">
@@ -396,7 +421,7 @@ export function AccountDetail({
             </div>
           ))}
         </div>
-      </div>
+      </div>}
 
       {/* 删除 */}
       <div className="mt-auto">
@@ -406,14 +431,14 @@ export function AccountDetail({
             <div className="flex gap-2">
               <button
                 onClick={handleDelete}
-                className="flex items-center gap-1 rounded-lg bg-timer-low px-3 py-1.5 text-[12px] font-medium text-accent-fg transition-colors hover:opacity-90"
+                className="flex items-center gap-1 rounded-lg bg-timer-low px-3 py-1.5 text-[12px] font-medium text-danger-fg transition-[filter,transform] hover:brightness-95 active:translate-y-px active:brightness-90"
               >
                 <Check size={12} />
                 确认
               </button>
               <button
                 onClick={() => setConfirmingDelete(false)}
-                className="rounded-lg border px-3 py-1.5 text-[12px] font-medium text-fg-muted transition-colors hover:bg-surface-hover"
+                className="rounded-lg border px-3 py-1.5 text-[12px] font-medium text-fg-muted transition-colors hover:bg-surface-hover active:bg-surface-active"
               >
                 取消
               </button>
@@ -422,7 +447,7 @@ export function AccountDetail({
         ) : (
           <button
             onClick={handleDelete}
-            className="flex w-full items-center justify-center gap-1.5 rounded-cell border py-2.5 text-[12.5px] text-fg-faint transition-colors hover:border-danger-border hover:bg-danger-faint hover:text-timer-low"
+            className="flex w-full items-center justify-center gap-1.5 rounded-cell border py-2.5 text-[12.5px] text-fg-faint transition-colors hover:border-danger-border hover:bg-danger-faint hover:text-timer-low active:bg-danger-soft"
           >
             <Trash2 size={13} />
             删除账户

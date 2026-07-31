@@ -53,7 +53,7 @@ export function TrashBin({ trash, onRestore, onPermanentDelete, onEmptyTrash, on
       <header className="flex items-center gap-2 px-4 pb-2 pt-4">
         <button
           onClick={onBack}
-          className="rounded-lg p-2 text-fg-muted transition-colors hover:bg-surface hover:text-fg"
+          className="icon-control rounded-lg p-2 text-fg-muted"
           aria-label="返回"
         >
           <ArrowLeft size={17} />
@@ -66,13 +66,13 @@ export function TrashBin({ trash, onRestore, onPermanentDelete, onEmptyTrash, on
             <div className="flex items-center gap-1.5">
               <button
                 onClick={handleEmptyTrash}
-                className="rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-timer-low transition-colors hover:bg-danger-soft"
+                className="rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-timer-low transition-colors hover:bg-danger-soft active:bg-danger-faint"
               >
                 确认清空
               </button>
               <button
                 onClick={() => setConfirmEmpty(false)}
-                className="rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-fg-muted transition-colors hover:bg-surface"
+                className="rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-fg-muted transition-colors hover:bg-surface active:bg-surface-active"
               >
                 取消
               </button>
@@ -80,7 +80,7 @@ export function TrashBin({ trash, onRestore, onPermanentDelete, onEmptyTrash, on
           ) : (
             <button
               onClick={handleEmptyTrash}
-              className="rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-fg-faint transition-colors hover:bg-surface hover:text-fg-muted"
+              className="rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-fg-faint transition-colors hover:bg-surface hover:text-fg-muted active:bg-surface-active"
             >
               清空
             </button>
@@ -130,7 +130,7 @@ export function TrashBin({ trash, onRestore, onPermanentDelete, onEmptyTrash, on
                 <div className="flex shrink-0 items-center gap-1">
                   <button
                     onClick={() => onRestore(account.id)}
-                    className="rounded-lg p-2 text-fg-faint transition-colors hover:bg-bg hover:text-copied"
+                    className="rounded-lg p-2 text-fg-faint transition-colors hover:bg-bg hover:text-copied active:bg-surface-active"
                     aria-label="恢复"
                   >
                     <RotateCcw size={14} />
@@ -138,14 +138,14 @@ export function TrashBin({ trash, onRestore, onPermanentDelete, onEmptyTrash, on
                   {isConfirmingDelete ? (
                     <button
                       onClick={() => handlePermanentDelete(account.id)}
-                      className="rounded-lg px-2 py-1.5 text-[11px] font-medium text-timer-low transition-colors hover:bg-danger-soft"
+                      className="rounded-lg px-2 py-1.5 text-[11px] font-medium text-timer-low transition-colors hover:bg-danger-soft active:bg-danger-faint"
                     >
                       确认
                     </button>
                   ) : (
                     <button
                       onClick={() => handlePermanentDelete(account.id)}
-                      className="rounded-lg p-2 text-fg-faint transition-colors hover:bg-bg hover:text-timer-low"
+                      className="rounded-lg p-2 text-fg-faint transition-colors hover:bg-bg hover:text-timer-low active:bg-surface-active"
                       aria-label="永久删除"
                     >
                       <Trash2 size={14} />

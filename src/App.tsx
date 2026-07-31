@@ -7,7 +7,6 @@ import { AddAccount } from "@/components/AddAccount";
 import { DataTransfer } from "@/components/DataTransfer";
 import { TrashBin } from "@/components/TrashBin";
 import { AccountDetail } from "@/components/AccountDetail";
-import { AmbientField } from "@/components/AmbientField";
 import { QuickCode } from "@/components/QuickCode";
 import { AlertCircle, LoaderCircle, RefreshCw } from "lucide-react";
 import type { AccountData } from "@/lib/types";
@@ -30,10 +29,10 @@ export default function App() {
   const setViewMode = useAccounts((s) => s.setViewMode);
   const selectedGroup = useAccounts((s) => s.selectedGroup);
   const setSelectedGroup = useAccounts((s) => s.setSelectedGroup);
-  const ambientEnabled = useAccounts((s) => s.ambientEnabled);
+  const accentColor = useAccounts((s) => s.accentColor);
   const loadStatus = useAccounts((s) => s.loadStatus);
   const loadError = useAccounts((s) => s.loadError);
-  const toggleAmbient = useAccounts((s) => s.toggleAmbient);
+  const setAccentColor = useAccounts((s) => s.setAccentColor);
   const reorderAccounts = useAccounts((s) => s.reorderAccounts);
   const load = useAccounts((s) => s.load);
   const addAccount = useAccounts((s) => s.addAccount);
@@ -252,8 +251,7 @@ export default function App() {
         inert={flipState === "open" ? true : undefined}
         aria-hidden={flipState === "open"}
       >
-        <AmbientField enabled={ambientEnabled} isDark={isDark} />
-        <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col">
           <Header
             hasAccounts={accounts.length > 0}
             searchQuery={searchQuery}
@@ -270,8 +268,8 @@ export default function App() {
             isThemeLocked={isThemeLocked}
             onToggleDark={toggleDark}
             onToggleThemeLock={toggleThemeLock}
-            ambientEnabled={ambientEnabled}
-            onToggleAmbient={toggleAmbient}
+            accentColor={accentColor}
+            onAccentColorChange={setAccentColor}
             trashCount={trash.length}
           />
           <CodeGrid
@@ -350,7 +348,7 @@ function VaultLoadState({
         <button
           type="button"
           onClick={() => void onRetry()}
-          className="mt-4 flex min-h-9 items-center gap-1.5 rounded-lg bg-accent px-3.5 text-[12.5px] font-medium text-accent-fg"
+          className="primary-control mt-4 flex min-h-9 items-center gap-1.5 rounded-lg bg-accent px-3.5 text-[12.5px] font-medium text-accent-fg"
         >
           <RefreshCw size={13} />
           重试

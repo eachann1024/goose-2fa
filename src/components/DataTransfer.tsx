@@ -123,7 +123,7 @@ export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTrans
         <div className="flex items-center gap-2 px-4 pb-2 pt-4">
           <button
             onClick={() => { setView({ kind: "menu" }); setError(""); }}
-            className="rounded-lg p-2 text-fg-muted transition-colors hover:bg-surface hover:text-fg"
+            className="icon-control rounded-lg p-2 text-fg-muted"
             aria-label="返回"
           >
             <ArrowLeft size={17} />
@@ -172,13 +172,13 @@ export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTrans
           <div className="flex gap-2 pb-4">
             <button
               onClick={() => { setView({ kind: "menu" }); setError(""); }}
-              className="flex-1 rounded-cell border py-2.5 text-[13px] font-medium text-fg-muted transition-colors hover:bg-surface-hover"
+              className="flex-1 rounded-cell border py-2.5 text-[13px] font-medium text-fg-muted transition-colors hover:bg-surface-hover active:bg-surface-active"
             >
               取消
             </button>
             <button
               onClick={handleConfirmImport}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-cell bg-accent py-2.5 text-[13px] font-medium text-accent-fg transition-colors hover:bg-accent-hover active:scale-[0.98]"
+              className="primary-control flex flex-1 items-center justify-center gap-1.5 rounded-cell bg-accent py-2.5 text-[13px] font-medium text-accent-fg active:scale-[0.98]"
             >
               导入 {view.fresh.length} 个账户
             </button>
@@ -205,7 +205,7 @@ export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTrans
         </div>
         <button
           onClick={onCancel}
-          className="mt-2 rounded-cell bg-accent px-5 py-2.5 text-[13px] font-medium text-accent-fg transition-colors hover:bg-accent-hover active:scale-[0.97]"
+          className="primary-control mt-2 rounded-cell bg-accent px-5 py-2.5 text-[13px] font-medium text-accent-fg active:scale-[0.97]"
         >
           完成
         </button>
@@ -219,7 +219,7 @@ export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTrans
       <div className="flex items-center gap-2 px-4 pb-2 pt-4">
         <button
           onClick={onCancel}
-          className="rounded-lg p-2 text-fg-muted transition-colors hover:bg-surface hover:text-fg"
+          className="icon-control rounded-lg p-2 text-fg-muted"
           aria-label="返回"
         >
           <ArrowLeft size={17} />
@@ -246,7 +246,7 @@ export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTrans
             <button
               onClick={handleExportFile}
               disabled={accounts.length === 0}
-              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-border-strong hover:bg-surface-hover disabled:opacity-40"
+              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-border-strong hover:bg-surface-hover active:bg-surface-active disabled:cursor-not-allowed disabled:border-border-soft disabled:bg-surface-hover disabled:text-fg-faint disabled:opacity-100"
             >
               {exported ? (
                 <>
@@ -263,7 +263,7 @@ export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTrans
             <button
               onClick={handleCopyUris}
               disabled={accounts.length === 0}
-              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-border-strong hover:bg-surface-hover disabled:opacity-40"
+              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-border-strong hover:bg-surface-hover active:bg-surface-active disabled:cursor-not-allowed disabled:border-border-soft disabled:bg-surface-hover disabled:text-fg-faint disabled:opacity-100"
             >
               {copied ? (
                 <>
@@ -295,14 +295,14 @@ export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTrans
           <div className="flex gap-2">
             <button
               onClick={handleOpenFile}
-              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-border-strong hover:bg-surface-hover"
+              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-border-strong hover:bg-surface-hover active:bg-surface-active"
             >
               <FileUp size={14} />
               选择文件
             </button>
             <button
               onClick={handleClipboardImport}
-              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-border-strong hover:bg-surface-hover"
+              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-border-strong hover:bg-surface-hover active:bg-surface-active"
             >
               <Copy size={14} />
               从剪贴板

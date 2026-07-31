@@ -23,6 +23,7 @@ interface AddAccountProps {
 }
 
 type OtpType = "totp" | "hotp";
+type FormError = { field: "name" | "secret"; message: string } | null;
 
 export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAccountProps) {
   const platform = usePlatform();
@@ -30,7 +31,7 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
   const [secret, setSecret] = useState("");
   const [type, setType] = useState<OtpType>("totp");
   const [importError, setImportError] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState<FormError>(null);
   const mountedRef = useRef(true);
   // 自增标识：每次点击导入/截屏都 +1，旧回调若标识过期则丢弃
   const captureGenRef = useRef(0);
@@ -47,15 +48,15 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
     const trimmedSecret = secret.replace(/\s/g, "").toUpperCase();
 
     if (!trimmedName) {
-      setError("请输入账户名称");
+      setError({ field: "name", message: "请输入账户名称" });
       return;
     }
     if (!trimmedSecret) {
-      setError("请输入密钥");
+      setError({ field: "secret", message: "请输入密钥" });
       return;
     }
     if (!/^[A-Z2-7]+=*$/.test(trimmedSecret)) {
-      setError("密钥格式不正确 (需要 Base32 编码)");
+      setError({ field: "secret", message: "密钥格式不正确 (需要 Base32 编码)" });
       return;
     }
 
@@ -208,7 +209,7 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
       <div className="flex items-center gap-2 px-4 pb-2 pt-4">
         <button
           onClick={onCancel}
-          className="rounded-lg p-2 text-fg-muted transition-colors hover:bg-surface hover:text-fg"
+          className="icon-control rounded-lg p-2 text-fg-muted"
           aria-label="返回"
         >
           <ArrowLeft size={17} />
@@ -224,7 +225,7 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
           <button
             type="button"
             onClick={handleClipboardImport}
-            className="flex flex-1 items-center gap-2.5 rounded-cell border bg-surface px-3.5 py-3 text-left transition-colors hover:border-border-strong hover:bg-surface-hover"
+            className="flex flex-1 items-center gap-2.5 rounded-cell border bg-surface px-3.5 py-3 text-left transition-colors hover:border-border-strong hover:bg-surface-hover active:bg-surface-active"
           >
             <ClipboardPaste size={17} className="shrink-0 text-accent" />
             <div className="min-w-0">
@@ -239,7 +240,7 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
           <button
             type="button"
             onClick={handleScreenCapture}
-            className="flex flex-1 items-center gap-2.5 rounded-cell border bg-surface px-3.5 py-3 text-left transition-colors hover:border-border-strong hover:bg-surface-hover"
+            className="flex flex-1 items-center gap-2.5 rounded-cell border bg-surface px-3.5 py-3 text-left transition-colors hover:border-border-strong hover:bg-surface-hover active:bg-surface-active"
           >
             <ScanLine size={17} className="shrink-0 text-accent" />
             <div className="min-w-0">
@@ -284,10 +285,17 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
-                setError("");
+                setError(null);
               }}
               placeholder="例如 GitHub, Google"
+              aria-invalid={error?.field === "name"}
+              aria-describedby={error?.field === "name" ? "account-name-error" : undefined}
             />
+            {error?.field === "name" && (
+              <p id="account-name-error" role="alert" className="fade-in mt-1.5 text-[12px] text-timer-low">
+                {error.message}
+              </p>
+            )}
           </div>
 
           <div>
@@ -300,15 +308,20 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
               value={secret}
               onChange={(e) => {
                 setSecret(e.target.value);
-                setError("");
+                setError(null);
               }}
               placeholder="例如 JBSWY3DPEHPK3PXP"
               className="font-mono tracking-wider"
               autoComplete="off"
               spellCheck={false}
-              aria-invalid={Boolean(error && !secret.trim())}
-              aria-describedby={error ? "account-form-error" : undefined}
+              aria-invalid={error?.field === "secret"}
+              aria-describedby={error?.field === "secret" ? "account-secret-error" : undefined}
             />
+            {error?.field === "secret" && (
+              <p id="account-secret-error" role="alert" className="fade-in mt-1.5 text-[12px] text-timer-low">
+                {error.message}
+              </p>
+            )}
           </div>
 
           <div>
@@ -323,7 +336,7 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
                 className={`flex flex-1 items-center gap-2 rounded-cell border px-3.5 py-2.5 text-[12.5px] font-medium transition-colors ${
                   type === "totp"
                     ? "border-accent-border bg-accent-subtle text-accent"
-                    : "bg-surface text-fg-muted hover:bg-surface-hover"
+                    : "bg-surface text-fg-muted hover:bg-surface-hover active:bg-surface-active"
                 }`}
               >
                 <Clock size={15} />
@@ -336,7 +349,7 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
                 className={`flex flex-1 items-center gap-2 rounded-cell border px-3.5 py-2.5 text-[12.5px] font-medium transition-colors ${
                   type === "hotp"
                     ? "border-accent-border bg-accent-subtle text-accent"
-                    : "bg-surface text-fg-muted hover:bg-surface-hover"
+                    : "bg-surface text-fg-muted hover:bg-surface-hover active:bg-surface-active"
                 }`}
               >
                 <Hash size={15} />
@@ -345,13 +358,9 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
             </div>
           </div>
 
-          {error && (
-            <p id="account-form-error" role="alert" className="fade-in text-[12px] text-timer-low">{error}</p>
-          )}
-
           <button
             type="submit"
-            className="mt-1 rounded-cell bg-accent py-2.5 text-[13px] font-medium text-accent-fg transition-colors hover:bg-accent-hover active:scale-[0.98]"
+            className="primary-control mt-1 rounded-cell bg-accent py-2.5 text-[13px] font-medium text-accent-fg active:scale-[0.98]"
           >
             保存
           </button>
