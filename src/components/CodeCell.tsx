@@ -300,9 +300,9 @@ function CellBody({
               <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="3" className="stroke-border-soft" />
               <circle
                 cx="18" cy="18" r="15.5" fill="none" strokeWidth="3" strokeLinecap="round"
-                className={`timer-ring ${isLow ? "stroke-timer-low" : "stroke-accent"}`}
+                className={`timer-ring ${remaining === period ? "timer-reset" : ""} ${isLow ? "stroke-timer-low" : "stroke-accent"}`}
                 strokeDasharray={2 * Math.PI * 15.5}
-                strokeDashoffset={2 * Math.PI * 15.5 * (1 - progress)}
+                style={{ strokeDashoffset: 2 * Math.PI * 15.5 * (1 - progress) }}
               />
             </svg>
             <span className="absolute text-[10px] font-medium tabular-nums text-fg-faint">
@@ -392,8 +392,8 @@ function CellBody({
         {isTotp && (
           <div className="mt-2 h-[2px] w-full overflow-hidden rounded-full bg-border">
             <div
-              className={`timer-bar h-full rounded-full ${isLow ? "bg-timer-low" : "bg-accent"}`}
-              style={{ width: `${progress * 100}%` }}
+              className={`timer-bar h-full rounded-full ${remaining === period ? "timer-reset" : ""} ${isLow ? "bg-timer-low" : "bg-accent"}`}
+              style={{ transform: `scaleX(${progress})` }}
             />
           </div>
         )}
@@ -464,8 +464,8 @@ function CellBody({
       {isTotp && (
         <div className="mt-3 h-[4px] w-full overflow-hidden rounded-full bg-border-soft">
           <div
-            className={`timer-bar h-full rounded-full ${isLow ? "bg-timer-low" : "bg-accent"}`}
-            style={{ width: `${progress * 100}%` }}
+            className={`timer-bar h-full rounded-full ${remaining === period ? "timer-reset" : ""} ${isLow ? "bg-timer-low" : "bg-accent"}`}
+            style={{ transform: `scaleX(${progress})` }}
           />
         </div>
       )}

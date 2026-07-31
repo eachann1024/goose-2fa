@@ -344,8 +344,8 @@ export function AccountDetail({
           <div
             className={`timer-bar h-full rounded-full ${
               isLow ? "bg-timer-low" : "bg-accent"
-            } ${barReady ? "" : "no-transition"}`}
-            style={{ width: `${progress * 100}%` }}
+            } ${barReady && remaining !== period ? "" : "timer-reset"}`}
+            style={{ transform: `scaleX(${progress})` }}
           />
         </div>
       )}

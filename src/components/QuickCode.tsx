@@ -162,7 +162,7 @@ function QuickRow({
       {account.type === "totp" ? (
         <svg width="16" height="16" viewBox="0 0 16 16" aria-label={`剩余 ${Math.ceil(remaining)} 秒`}>
           <circle cx="8" cy="8" r="6.5" fill="none" stroke="var(--color-border)" strokeWidth="2" />
-          <circle cx="8" cy="8" r="6.5" fill="none" stroke={isLow ? "var(--color-timer-low)" : "var(--color-accent)"} strokeWidth="2" strokeLinecap="round" strokeDasharray={2 * Math.PI * 6.5} strokeDashoffset={2 * Math.PI * 6.5 * (1 - progress)} transform="rotate(-90 8 8)" />
+          <circle className={`timer-ring ${remaining === period ? "timer-reset" : ""}`} cx="8" cy="8" r="6.5" fill="none" stroke={isLow ? "var(--color-timer-low)" : "var(--color-accent)"} strokeWidth="2" strokeLinecap="round" strokeDasharray={2 * Math.PI * 6.5} style={{ strokeDashoffset: 2 * Math.PI * 6.5 * (1 - progress) }} transform="rotate(-90 8 8)" />
         </svg>
       ) : (
         <span className="text-[10px] text-fg-faint">#{account.counter}</span>

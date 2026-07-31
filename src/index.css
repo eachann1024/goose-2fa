@@ -197,11 +197,22 @@
 
 @layer components {
   .timer-bar {
-    transition: none;
+    width: 100%;
+    transform-origin: left center;
+    transition:
+      transform 1s linear,
+      background-color 0.15s ease;
   }
 
   .timer-ring {
-    transition: none;
+    transition:
+      stroke-dashoffset 1s linear,
+      stroke 0.15s ease;
+  }
+
+  .timer-reset,
+  .no-transition {
+    transition: none !important;
   }
 
   /* 拖动浮层：被"拎起"的卡片——放大、强投影、微旋转 */
