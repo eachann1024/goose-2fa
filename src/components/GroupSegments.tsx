@@ -128,7 +128,7 @@ export function GroupSegments({
               />
               <button
                 type="submit"
-                className="rounded-full p-0.5 text-accent"
+                className="rounded-full p-0.5 text-accent transition-colors hover:bg-accent-subtle active:bg-surface-active"
                 aria-label="确认重命名"
               >
                 <Check size={12} />
@@ -140,7 +140,7 @@ export function GroupSegments({
                   setRenameValue("");
                   setGroupError("");
                 }}
-                className="rounded-full p-0.5 text-fg-faint"
+                className="rounded-full p-0.5 text-fg-faint transition-colors hover:bg-surface-hover active:bg-surface-active"
                 aria-label="取消重命名"
               >
                 <X size={12} />
@@ -157,13 +157,14 @@ export function GroupSegments({
                 hasMenu
                 onClick={() => { setGroupError(""); onSelect(g.id); }}
               />
+              {/* 菜单仅在悬停/聚焦时露出，不常驻占位 */}
               <DropdownMenu>
                 <DropdownMenuTrigger
-                  className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-fg-faint opacity-0 transition-[color,background-color,opacity] hover:bg-bg hover:text-fg focus-visible:opacity-100 group-hover/seg:opacity-100 group-focus-within/seg:opacity-100 data-[popup-open]:bg-bg data-[popup-open]:opacity-100"
+                  className="absolute right-1 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center rounded text-fg-faint opacity-0 transition-[color,background-color,opacity] hover:bg-bg hover:text-fg focus-visible:opacity-100 group-hover/seg:opacity-100 group-focus-within/seg:opacity-100 data-[popup-open]:bg-bg data-[popup-open]:opacity-100"
                   aria-label={`${g.name} 分组菜单`}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <MoreHorizontal size={10} />
+                  <MoreHorizontal size={10} strokeWidth={2} />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-36">
                   <DropdownMenuItem
@@ -228,7 +229,7 @@ export function GroupSegments({
               maxLength={MAX_GROUP_NAME_LENGTH}
               aria-label="新建分组名称"
             />
-            <button type="submit" className="rounded-full p-0.5 text-accent" aria-label="创建分组">
+            <button type="submit" className="rounded-full p-0.5 text-accent transition-colors hover:bg-accent-subtle active:bg-surface-active" aria-label="创建分组">
               <Check size={12} />
             </button>
             <button
@@ -238,7 +239,7 @@ export function GroupSegments({
                 setCreateName("");
                 setGroupError("");
               }}
-              className="rounded-full p-0.5 text-fg-faint"
+              className="rounded-full p-0.5 text-fg-faint transition-colors hover:bg-surface-hover active:bg-surface-active"
               aria-label="取消创建"
             >
               <X size={12} />
@@ -248,7 +249,7 @@ export function GroupSegments({
           <button
             type="button"
             onClick={() => { setGroupError(""); setCreating(true); }}
-            className="flex h-7 shrink-0 items-center gap-1 rounded-full border border-dashed border-border px-2.5 text-[11px] text-fg-muted transition-colors hover:border-border-strong hover:bg-surface-hover hover:text-fg"
+            className="flex h-7 shrink-0 items-center gap-1 rounded-full border border-dashed border-border px-2.5 text-[11px] text-fg-muted transition-colors hover:border-border-strong hover:bg-surface-hover hover:text-fg active:bg-surface-active"
             aria-label="新建分组"
           >
             <Plus size={12} />
@@ -264,8 +265,8 @@ export function GroupSegments({
           <p className="min-w-0 flex-1 break-words text-[11px] leading-relaxed text-fg-muted">
             删除“{deleteCandidate.name}”？{deleteCandidate.count > 0 ? `${deleteCandidate.count} 个账户会移到未分组。` : "此分组没有账户。"}
           </p>
-          <button type="button" onClick={() => setDeleteCandidate(null)} className="min-h-8 rounded-lg px-2 text-[11px] text-fg-muted">取消</button>
-          <button type="button" onClick={() => { onDelete(deleteCandidate.id); setDeleteCandidate(null); }} className="min-h-8 rounded-lg bg-timer-low px-2.5 text-[11px] font-medium text-accent-fg">删除</button>
+          <button type="button" onClick={() => setDeleteCandidate(null)} className="min-h-8 rounded-lg px-2 text-[11px] text-fg-muted transition-colors hover:bg-surface active:bg-surface-active">取消</button>
+          <button type="button" onClick={() => { onDelete(deleteCandidate.id); setDeleteCandidate(null); }} className="min-h-8 rounded-lg bg-timer-low px-2.5 text-[11px] font-medium text-danger-fg transition-[filter,transform] hover:brightness-95 active:translate-y-px active:brightness-90">删除</button>
         </div>
       )}
     </div>
@@ -322,16 +323,19 @@ function SegmentChip({
         tabs[nextIndex]?.focus();
         tabs[nextIndex]?.click();
       }}
-      className={`group/chip flex h-7 shrink-0 items-center gap-1.5 rounded-full text-left transition-[color,background-color,box-shadow,transform] ${
-        hasMenu ? "pl-3.5 pr-9" : "px-3.5"
+      className={`group/chip flex h-7 shrink-0 items-center gap-1.5 rounded-full text-left transition-[color,background-color,box-shadow,transform,padding] ${
+        // 默认与「全部」同宽；仅悬停/菜单聚焦时略扩右侧给「…」
+        hasMenu
+          ? "pl-3.5 pr-3.5 group-hover/seg:pr-6 group-focus-within/seg:pr-6"
+          : "px-3.5"
       } ${
         isOver
           ? "scale-[1.04] bg-accent text-accent-fg shadow-[0_0_0_2px_var(--color-bg),0_0_0_4px_var(--color-accent)]"
           : active
           ? "bg-accent-subtle text-accent"
           : muted
-            ? "text-fg-faint hover:bg-surface-hover hover:text-fg-muted"
-            : "text-fg-muted hover:bg-surface-hover hover:text-fg"
+            ? "text-fg-faint hover:bg-surface-hover hover:text-fg-muted active:bg-surface-active"
+            : "text-fg-muted hover:bg-surface-hover hover:text-fg active:bg-surface-active"
       }`}
     >
       <span className="max-w-[7rem] truncate text-[11.5px] font-medium leading-none">

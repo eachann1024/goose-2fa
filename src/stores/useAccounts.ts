@@ -9,6 +9,12 @@ import {
   normalizeGroupName,
   resolveSelectedGroup,
 } from "@/lib/groups";
+import {
+  applyAccentColor,
+  DEFAULT_ACCENT_COLOR,
+  normalizeAccentColor,
+  type AccentColor,
+} from "@/lib/accent-color";
 
 let platform: PlatformAdapter;
 let persistQueue: Promise<void> = Promise.resolve();
@@ -22,9 +28,9 @@ export type ViewMode = "grid" | "compact" | "list";
 
 const VIEW_MODE_KEY = "goose-2fa-view";
 const GROUP_KEY = "goose-2fa-group";
+const ACCENT_COLOR_KEY = "goose-2fa-accent";
 /** 旧版分组曾落在 localStorage；迁移到平台存储后删除 */
 const LEGACY_GROUPS_KEY = "goose-2fa-groups";
-const AMBIENT_KEY = "goose-2fa-ambient";
 /** 兼容旧 issuer 侧栏选中，读取一次后清除 */
 const LEGACY_CATEGORY_KEY = "goose-2fa-category";
 
@@ -87,11 +93,12 @@ function persistGroups(groups: VaultGroup[]) {
     });
 }
 
-function loadAmbientEnabled(): boolean {
-  const stored = localStorage.getItem(AMBIENT_KEY);
-  if (stored === null) return true;
-  return stored === "true";
+function loadAccentColor(): AccentColor {
+  return normalizeAccentColor(localStorage.getItem(ACCENT_COLOR_KEY) ?? DEFAULT_ACCENT_COLOR);
 }
+
+const initialAccentColor = loadAccentColor();
+applyAccentColor(initialAccentColor);
 
 interface AccountsState {
   accounts: AccountData[];
@@ -106,7 +113,7 @@ interface AccountsState {
   editMode: boolean;
   viewMode: ViewMode;
   selectedGroup: string | null;
-  ambientEnabled: boolean;
+  accentColor: AccentColor;
   loadStatus: "idle" | "loading" | "ready" | "error";
   loadError: string | null;
 
@@ -114,8 +121,7 @@ interface AccountsState {
   save: (accounts: AccountData[]) => void;
   setViewMode: (mode: ViewMode) => void;
   setSelectedGroup: (groupId: string | null) => void;
-  setAmbientEnabled: (enabled: boolean) => void;
-  toggleAmbient: () => void;
+  setAccentColor: (accentColor: AccentColor) => void;
   reorderAccounts: (activeId: string, overId: string) => void;
   addAccount: (input: NewAccountInput) => void;
   importAccounts: (inputs: NewAccountInput[], groups?: VaultGroup[]) => void;
@@ -183,7 +189,7 @@ export const useAccounts = create<AccountsState>((set, get) => ({
   editMode: false,
   viewMode: loadViewMode(),
   selectedGroup: loadSelectedGroup(),
-  ambientEnabled: loadAmbientEnabled(),
+  accentColor: initialAccentColor,
   loadStatus: "idle",
   loadError: null,
 
@@ -239,15 +245,11 @@ export const useAccounts = create<AccountsState>((set, get) => ({
     set({ selectedGroup: groupId });
   },
 
-  setAmbientEnabled: (enabled) => {
-    localStorage.setItem(AMBIENT_KEY, String(enabled));
-    set({ ambientEnabled: enabled });
-  },
-
-  toggleAmbient: () => {
-    const next = !get().ambientEnabled;
-    localStorage.setItem(AMBIENT_KEY, String(next));
-    set({ ambientEnabled: next });
+  setAccentColor: (accentColor) => {
+    const normalized = normalizeAccentColor(accentColor);
+    localStorage.setItem(ACCENT_COLOR_KEY, normalized);
+    applyAccentColor(normalized);
+    set({ accentColor: normalized });
   },
 
   reorderAccounts: (activeId, overId) => {

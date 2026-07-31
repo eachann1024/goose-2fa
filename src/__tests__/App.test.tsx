@@ -69,7 +69,7 @@ beforeEach(() => {
     editMode: false,
     viewMode: "compact",
     selectedGroup: null,
-    ambientEnabled: true,
+    accentColor: "mono",
     loadStatus: "idle",
     loadError: null,
   });
@@ -93,6 +93,8 @@ describe("App 核心流程", () => {
     expect(await screen.findByRole("button", { name: "返回" })).toBeInTheDocument();
     expect(screen.getByText("账户详情")).toBeInTheDocument();
     expect(screen.getAllByText(/alice@example\.com/)).toHaveLength(2);
+    expect(screen.getByRole("combobox", { name: "移动到分组" })).toHaveTextContent("未分组");
+    expect(screen.getAllByText("添加时间")).toHaveLength(1);
   });
 
   it("读取失败不会进入空仓库，重试后恢复", async () => {
@@ -115,8 +117,21 @@ describe("App 核心流程", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "添加账户" }));
     expect(await screen.findByRole("heading", { name: "添加账户" })).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "账户名称" })).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "密钥" })).toBeInTheDocument();
+    const nameInput = screen.getByRole("textbox", { name: "账户名称" });
+    const secretInput = screen.getByRole("textbox", { name: "密钥" });
+    expect(nameInput).toBeInTheDocument();
+    expect(secretInput).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    expect(nameInput).toHaveAttribute("aria-invalid", "true");
+    expect(secretInput).toHaveAttribute("aria-invalid", "false");
+    expect(screen.getByRole("alert")).toHaveTextContent("请输入账户名称");
+
+    fireEvent.change(nameInput, { target: { value: "GitHub" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    expect(nameInput).toHaveAttribute("aria-invalid", "false");
+    expect(secretInput).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("alert")).toHaveTextContent("请输入密钥");
   });
 
   it("账户只按顶部分组筛选，不再按发行方生成可收起的二级分组", async () => {

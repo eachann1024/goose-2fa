@@ -46,6 +46,14 @@ beforeEach(() => {
 });
 
 describe("账户存储", () => {
+  it("持久化强调色并同步到页面属性", () => {
+    useAccounts.getState().setAccentColor("ocean");
+
+    expect(useAccounts.getState().accentColor).toBe("ocean");
+    expect(localStorage.getItem("goose-2fa-accent")).toBe("ocean");
+    expect(document.documentElement).toHaveAttribute("data-accent", "ocean");
+  });
+
   it("串行保存连续变更，最后一次快照包含全部账户", async () => {
     const snapshots: string[][] = [];
     const adapter = makeAdapter(async (accounts) => {

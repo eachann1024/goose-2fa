@@ -219,7 +219,7 @@ export function CodeGrid({
             <button
               type="button"
               onClick={onAdd}
-              className="mt-2 rounded-full bg-accent px-3.5 py-1.5 text-[12px] font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+              className="primary-control mt-2 rounded-full bg-accent px-3.5 py-1.5 text-[12px] font-medium text-accent-fg"
             >
               添加账户
             </button>

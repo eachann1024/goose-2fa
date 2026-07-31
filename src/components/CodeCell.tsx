@@ -92,7 +92,7 @@ export function CodeCell({
       {...attributes}
       {...listeners}
       onClick={(e) => e.stopPropagation()}
-      className={`drag-handle shrink-0 cursor-grab touch-none rounded-md text-fg-faint opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 active:cursor-grabbing ${
+      className={`drag-handle shrink-0 cursor-grab touch-none rounded-md text-fg-faint opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 active:cursor-grabbing active:bg-surface-active ${
         isList
           ? "self-start -ml-1 flex h-[15px] w-[15px] items-center justify-center p-0"
           : viewMode === "compact"
@@ -315,7 +315,7 @@ function CellBody({
             {!copied && !overlay && (
               <button
                 onClick={onRefresh}
-                className="rounded-md p-1 text-fg-faint transition-colors hover:bg-bg hover:text-accent"
+                className="rounded-md p-1 text-fg-faint transition-colors hover:bg-bg hover:text-accent active:bg-surface-active"
                 aria-label="下一个"
               >
                 <RefreshCw size={15} />
@@ -327,7 +327,7 @@ function CellBody({
         {!overlay && (
           <button
             onClick={onDetailClick}
-            className="shrink-0 rounded-md p-1 text-fg-faint opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
+            className="shrink-0 rounded-md p-1 text-fg-faint opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 active:bg-surface-active"
             aria-label="详情"
           >
             <Info size={14} />
@@ -344,7 +344,7 @@ function CellBody({
         {!overlay && (
           <button
             onClick={onDetailClick}
-            className="absolute right-2 top-2 rounded-md p-0.5 text-fg-faint opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
+            className="absolute right-2 top-2 rounded-md p-0.5 text-fg-faint opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 active:bg-surface-active"
             aria-label="详情"
           >
             <Info size={11} />
@@ -381,7 +381,7 @@ function CellBody({
           {!isTotp && !copied && !overlay && (
             <button
               onClick={onRefresh}
-              className="rounded-md p-0.5 text-fg-faint transition-colors hover:bg-bg hover:text-accent"
+              className="rounded-md p-0.5 text-fg-faint transition-colors hover:bg-bg hover:text-accent active:bg-surface-active"
               aria-label="下一个"
             >
               <RefreshCw size={13} />
@@ -416,7 +416,7 @@ function CellBody({
       {!overlay && (
         <button
           onClick={onDetailClick}
-          className="absolute right-2.5 top-2.5 rounded-md p-1 text-fg-faint opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
+          className="absolute right-2.5 top-2.5 rounded-md p-1 text-fg-faint opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 active:bg-surface-active"
           aria-label="详情"
         >
           <Info size={13} />
@@ -453,7 +453,7 @@ function CellBody({
         {!isTotp && !copied && !overlay && (
           <button
             onClick={onRefresh}
-            className="rounded-md p-1 text-fg-faint transition-colors hover:bg-bg hover:text-accent"
+            className="rounded-md p-1 text-fg-faint transition-colors hover:bg-bg hover:text-accent active:bg-surface-active"
             aria-label="下一个"
           >
             <RefreshCw size={15} />

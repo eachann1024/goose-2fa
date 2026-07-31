@@ -1,12 +1,16 @@
-import { useState, useRef, useEffect, type ReactNode } from "react";
-import { Search, Plus, X, MoreHorizontal, Moon, Sun, ArrowDownUp, Trash2, Lock, LockOpen, LayoutGrid, List, Columns3, Sparkles } from "lucide-react";
+import { useState, useRef, useEffect, type CSSProperties, type ReactNode } from "react";
+import { Search, Plus, X, MoreHorizontal, Moon, Sun, ArrowDownUp, Trash2, Lock, LockOpen, LayoutGrid, List, Columns3, Palette, Check } from "lucide-react";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupButton } from "@/components/ui/input-group";
 import type { ViewMode } from "@/stores/useAccounts";
+import { ACCENT_OPTIONS, type AccentColor } from "@/lib/accent-color";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -23,8 +27,8 @@ interface HeaderProps {
   isThemeLocked: boolean;
   onToggleDark: () => void;
   onToggleThemeLock: () => void;
-  ambientEnabled: boolean;
-  onToggleAmbient: () => void;
+  accentColor: AccentColor;
+  onAccentColorChange: (accentColor: AccentColor) => void;
   trashCount: number;
 }
 
@@ -41,8 +45,8 @@ export function Header({
   isThemeLocked,
   onToggleDark,
   onToggleThemeLock,
-  ambientEnabled,
-  onToggleAmbient,
+  accentColor,
+  onAccentColorChange,
   trashCount,
 }: HeaderProps) {
   const VIEW_CYCLE: Record<ViewMode, ViewMode> = {
@@ -122,7 +126,7 @@ export function Header({
             <>
               <button
                 onClick={onToggleView}
-                className="rounded-lg p-2 text-fg-muted transition-colors hover:bg-surface hover:text-fg"
+                className="icon-control rounded-lg p-2 text-fg-muted"
                 aria-label={`当前${VIEW_LABELS[viewMode]}，点击切换`}
                 title={VIEW_LABELS[VIEW_CYCLE[viewMode]]}
               >
@@ -130,7 +134,7 @@ export function Header({
               </button>
               <button
                 onClick={handleSearchToggle}
-                className="rounded-lg p-2 text-fg-muted transition-colors hover:bg-surface hover:text-fg"
+                className="icon-control rounded-lg p-2 text-fg-muted"
                 aria-label="搜索"
               >
                 <Search size={17} />
@@ -142,7 +146,7 @@ export function Header({
 
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="rounded-lg p-2 text-fg-muted transition-colors hover:bg-surface hover:text-fg"
+          className="icon-control rounded-lg p-2 text-fg-muted"
           aria-label="菜单"
         >
           <MoreHorizontal size={17} />
@@ -176,19 +180,44 @@ export function Header({
             {isThemeLocked ? <Lock size={14} /> : <LockOpen size={14} />}
             {isThemeLocked ? "改为跟随系统" : "锁定当前主题"}
           </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={onToggleAmbient}
-            className="gap-2.5 text-[13px]"
-          >
-            <Sparkles size={14} />
-            {ambientEnabled ? "关闭背景氛围" : "开启背景氛围"}
-          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="gap-2.5 text-[13px]">
+              <Palette size={14} />
+              强调色
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-36">
+              {ACCENT_OPTIONS.map((option) => (
+                <DropdownMenuItem
+                  key={option.value}
+                  onClick={() => onAccentColorChange(option.value)}
+                  className="gap-2 text-[12.5px]"
+                  aria-current={accentColor === option.value ? "true" : undefined}
+                >
+                  <span
+                    className="accent-swatch"
+                    style={{
+                      "--swatch-light": option.light,
+                      "--swatch-dark": option.dark,
+                    } as CSSProperties}
+                    aria-hidden="true"
+                  />
+                  <span>{option.label}</span>
+                  <Check
+                    size={13}
+                    className={`ml-auto ${accentColor === option.value ? "opacity-100" : "opacity-0"}`}
+                    aria-hidden="true"
+                  />
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
         </DropdownMenuContent>
       </DropdownMenu>
 
       <button
         onClick={onAdd}
-        className="rounded-lg bg-accent p-2 text-accent-fg transition-colors hover:bg-accent-hover active:scale-95"
+        className="primary-control rounded-lg bg-accent p-2 text-accent-fg active:scale-95"
         aria-label="添加账户"
       >
         <Plus size={17} strokeWidth={2.5} />

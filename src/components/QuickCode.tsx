@@ -147,7 +147,7 @@ function QuickRow({
       data-code={code}
       onClick={() => void onPick(account, code)}
       onMouseEnter={onHover}
-      className={`flex h-14 w-full items-center gap-3 px-4 text-left transition-colors ${selected ? "bg-surface-hover" : "hover:bg-surface"}`}
+      className={`flex h-14 w-full items-center gap-3 px-4 text-left transition-colors active:bg-surface-active ${selected ? "bg-surface-hover" : "hover:bg-surface"}`}
     >
       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${selected ? "bg-accent text-accent-fg" : "bg-accent-subtle text-accent"}`} aria-hidden="true">
         {initial}
