@@ -29,5 +29,7 @@
     }
   ],
   "main": "dist/index.html",
-  "preload": "preload/preload.cjs"
+  "preload": "preload/preload.cjs",
+  "name": "goose-2fa",
+  "title": "鹅的验证"
 }
