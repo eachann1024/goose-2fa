@@ -4,7 +4,7 @@
   "author": "Antigravity",
   "homepage": "",
   "version": "0.1.0",
-  "logo": "logo.png",
+  "logo": "public/logo.png",
   "pluginSetting": {
     "single": true,
     "height": 560
@@ -13,23 +13,35 @@
     {
       "code": "2fa",
       "explain": "查看 2FA 验证码",
-      "cmds": ["2FA", "OTP", "验证码", "二步验证"]
+      "cmds": [
+        "2FA",
+        "OTP",
+        "验证码",
+        "二步验证"
+      ]
     },
     {
       "code": "quick",
       "explain": "快速取 OTP 并粘贴到当前窗口",
       "cmds": [
-        { "type": "regex", "label": "鹅的验证：快速取码", "match": "/^(2fa|otp|验证码)\\s+\\S+/i" }
+        {
+          "type": "regex",
+          "label": "鹅的验证：快速取码",
+          "match": "/^(2fa|otp|验证码)\\s+\\S+/i"
+        }
       ]
     },
     {
       "code": "manage",
       "explain": "管理鹅的验证账户",
-      "cmds": ["管理鹅的验证", "goose 2fa"]
+      "cmds": [
+        "管理鹅的验证",
+        "goose 2fa"
+      ]
     }
   ],
-  "main": "dist/index.html",
-  "preload": "preload/preload.cjs",
+  "main": "dist-utools/index.html",
+  "preload": "utools/preload.cjs",
   "name": "goose-2fa",
   "title": "鹅的验证"
 }
