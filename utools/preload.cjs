@@ -1,3 +1,7 @@
+if (window.ztools) {
+  window.utools = window.ztools
+}
+
 if (typeof window !== "undefined" && typeof utools !== "undefined") {
   window.utools = utools;
 
