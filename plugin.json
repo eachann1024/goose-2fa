@@ -2,7 +2,7 @@
   "pluginName": "鹅的验证",
   "description": "本地化的双因素认证工具",
   "author": "Antigravity",
-  "homepage": "",
+  "homepage": "https://github.com/eachann1024/goose-2fa",
   "version": "0.1.0",
   "logo": "public/logo.png",
   "pluginSetting": {
