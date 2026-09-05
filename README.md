@@ -1,6 +1,6 @@
-# 鹅的验证
+> **已迁入 [Goose Hub](/Users/eachann/Work/goose-hub)。** 数据目录为 `~/.config/2fa`。本仓库的 uTools 版以 tag `utools-last` 冻结，需要回滚时检出该 tag。
 
-![封面](cover.png)
+# 鹅的验证
 
 主框打 `2fa github` 回车，验证码直接贴到刚才的窗口。助手只能看脱敏账户，永远拿不到种子和动态码。
 
@@ -11,10 +11,6 @@
 - **吃进迁移码**：粘贴 Google Authenticator 迁移码或 otpauth 链接就能进。
 - **备份带分组**：导出带分组、备注、自定义名；卡片可拖到其他一级分组。
 - **TOTP 与 HOTP 同一面**：倒计时共享时钟，HOTP 粘贴成功后才安全加计数。
-
-## 系列
-
-![鹅系列 · 大功能](series-features.png)
 
 ## 同系列
 
