@@ -44,7 +44,7 @@ export function QuickCode({ accounts, initialQuery, onIncrement }: QuickCodeProp
       const pasted = platform.pasteText?.(code) ?? false;
       if (!pasted) {
         await platform.copyText(code);
-        platform.showNotification(`已复制 ${account.issuer || account.name} 验证码`);
+        platform.showNotification(`已复制 ${account.note || account.issuer || account.name} 验证码`);
         platform.hideWindow();
       }
       if (account.type === "hotp") onIncrement(account.id);
@@ -136,7 +136,8 @@ function QuickRow({
   const { code, remaining, period } = useOtpCode(account);
   const isLow = account.type === "totp" && remaining <= 5;
   const progress = account.type === "totp" ? Math.max(0, Math.min(1, remaining / period)) : 1;
-  const initial = (account.issuer || account.name || "?").trim().charAt(0).toUpperCase();
+  const displayName = account.note || (account.issuer || account.name);
+  const initial = displayName.trim().charAt(0).toUpperCase();
 
   return (
     <button
@@ -153,7 +154,7 @@ function QuickRow({
         {initial}
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-[13px] font-medium text-fg">{account.issuer || account.name}</span>
+        <span className="truncate text-[13px] font-medium text-fg">{displayName}</span>
         {account.issuer && <span className="truncate text-[11px] text-fg-faint">{account.name}</span>}
       </span>
       <span className={`font-mono text-[22px] font-semibold tracking-[0.06em] ${isLow ? "text-timer-low" : selected ? "text-accent" : "text-fg"}`}>

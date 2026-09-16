@@ -112,7 +112,7 @@ export function CodeCell({
       viewMode={viewMode}
       copied={copied}
       onClick={() => void handleCopy()}
-      copyLabel={`复制 ${account.issuer || account.name} 的验证码`}
+      copyLabel={`复制 ${account.note || account.issuer || account.name} 的验证码`}
       interactive
     >
       {handle}
@@ -262,9 +262,9 @@ function CellBody({
   const isTotp = account.type === "totp";
   const isLow = isTotp && remaining <= 5;
   const progress = isTotp ? remaining / period : 1;
-  const displayName = account.issuer
-    ? `${account.issuer} (${account.name})`
-    : account.name;
+  const originalName = account.originalName
+    || (account.issuer ? `${account.issuer} (${account.name})` : account.name);
+  const displayName = account.note || originalName;
   const isList = viewMode === "list";
   const isCompact = viewMode === "compact";
 
