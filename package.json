@@ -1,7 +1,7 @@
 {
   "name": "goose-2fa",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite --port 6002",
