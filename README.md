@@ -4,7 +4,9 @@
 
 ## 视频介绍
 
-https://github.com/user-attachments/assets/6f9a9737-886b-4a48-b88a-6a29f72a2aa8
+真实运行录屏：浏览器开发预览版加临时测试账户，不是 uTools 里的录屏，也不含真实账户。
+
+https://github.com/user-attachments/assets/5ab572b6-5c74-4549-a24a-26cbcf7d3be2
 
 ## 大功能
 
@@ -13,6 +15,12 @@ https://github.com/user-attachments/assets/6f9a9737-886b-4a48-b88a-6a29f72a2aa8
 - **吃进迁移码**：粘贴 Google Authenticator 迁移码或 otpauth 链接就能进。
 - **备份带分组**：导出带分组、备注、自定义名；卡片可拖到其他一级分组。
 - **TOTP 与 HOTP 同一面**：倒计时共享时钟，HOTP 粘贴成功后才安全加计数。
+
+## 当前状态
+
+- 这是 uTools 插件。取码即贴要在 uTools 里用，视频里没有录这一段。
+- MCP 只有两个工具：查看摘要、检索账户元数据。它读你手动导出的备份文件，不读实时数据，不能取码，不能写入。
+- 界面写着“数据加密存储”，但代码里还没有加密：账户以明文存在 uTools 数据库或浏览器本地，加密还在做。
 
 ## 同系列
 
