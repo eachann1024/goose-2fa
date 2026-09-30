@@ -4,6 +4,14 @@
 
 主框打 `2fa github` 回车，验证码直接贴到刚才的窗口。助手只能看脱敏账户，永远拿不到种子和动态码。
 
+## 视频介绍
+
+[![中文产品介绍视频](docs/media/product-intro-cover.png)](https://github.com/eachann1024/goose-2fa/raw/refs/heads/main/docs/media/product-intro-zh.mp4)
+
+[观看／下载 MP4](https://github.com/eachann1024/goose-2fa/raw/refs/heads/main/docs/media/product-intro-zh.mp4) · 中文旁白 · 1080p · 40 秒
+
+**源码界面预览·虚构演示数据**。展示账户搜索、分组、取码界面及导入导出入口；MCP 脱敏能力依据源码说明，未连接执行。已迁入 Goose Hub。基于 goose-2fa `53a42855dfc184a2841caffe8fa4697caa55dbce` 与 Hub `f298eb8936e57073f2e34bd59bf211e8ee9ba66a` 的组件源码。
+
 ## 大功能
 
 - **取码即贴**：`2fa github` / `otp 谷歌` 回车，贴到上一窗口；失败才复制。
