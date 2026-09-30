@@ -4,7 +4,7 @@
 
 ## 视频介绍
 
-https://github.com/user-attachments/assets/2f1ebe6e-7ceb-4c3e-b5bf-831d5bf171f6
+https://github.com/user-attachments/assets/6f9a9737-886b-4a48-b88a-6a29f72a2aa8
 
 ## 大功能
 
