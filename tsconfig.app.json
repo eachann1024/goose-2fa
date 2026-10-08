@@ -17,7 +17,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
-    "types": ["node", "vitest/globals"],
+    "types": ["node"],
     "paths": {
       "@/*": ["./src/*"]
     }

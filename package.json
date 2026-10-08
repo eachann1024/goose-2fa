@@ -8,9 +8,7 @@
     "dev": "vite --port 6002",
     "build": "tsc -b && vite build -c vite.config.utools.ts --logLevel warn && node utools/scripts/build.js",
     "build:debug": "GOOSE_DEBUG=1 tsc -b && GOOSE_DEBUG=1 vite build -c vite.config.utools.ts && GOOSE_DEBUG=1 node utools/scripts/build.js",
-    "mcp:serve": "bun run src/mcp/server.ts",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "mcp:serve": "bun run src/mcp/server.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -42,18 +40,14 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.0",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
     "@types/node": "^25.9.1",
     "@types/react": "^19.2.16",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "code-inspector-plugin": "^1.5.1",
-    "jsdom": "^29.1.1",
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3",
-    "vite": "^8.0.16",
-    "vitest": "^4.1.8"
+    "vite": "^8.0.16"
   },
   "overrides": {
     "@types/react": "$@types/react",
