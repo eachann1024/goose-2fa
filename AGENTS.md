@@ -20,6 +20,5 @@
 ## 验证
 
 - 代码改动运行 `bun run build`。
-- 改 OTP、导入导出、二维码或账号状态时运行 `bun run test`。
 - 改颜色、悬停或选中态时，检查构建产物不存在 `color-mix|oklch|lab\(|lch\(`，并在 uTools 真机核对。
 - 只有任务需要页面操作或视觉验收时才读取全局 `browser-use` skill。
