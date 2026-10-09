@@ -36,7 +36,7 @@ https://github.com/user-attachments/assets/5ab572b6-5c74-4549-a24a-26cbcf7d3be2
 
 ## 参与
 
-改动请开 PR。PR 会先由审核机器人检查。
+改动请开 PR。PR 会先由审核机器人检查，没有致命问题会自动合并。
 
 ## 许可
 
