@@ -34,6 +34,10 @@ https://github.com/user-attachments/assets/5ab572b6-5c74-4549-a24a-26cbcf7d3be2
 
 不替你托管密钥，不把验证码传到网上。不是 Tauri 桌面端。
 
+## 参与
+
+改动请开 PR。PR 会先由审核机器人检查。
+
 ## 许可
 
 本项目以 [MIT 许可证](LICENSE) 开源，版权所有 © 2026 eachann1024。
