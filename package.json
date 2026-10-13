@@ -8,7 +8,9 @@
     "dev": "vite --port 6002",
     "build": "tsc -b && vite build -c vite.config.utools.ts --logLevel warn && node utools/scripts/build.js",
     "build:debug": "GOOSE_DEBUG=1 tsc -b && GOOSE_DEBUG=1 vite build -c vite.config.utools.ts && GOOSE_DEBUG=1 node utools/scripts/build.js",
-    "mcp:serve": "bun run src/mcp/server.ts"
+    "mcp:serve": "bun run src/mcp/server.ts",
+    "test": "vitest run",
+    "test:bridge": "node --test utools/preload.integration.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -37,7 +39,10 @@
     "code-inspector-plugin": "^1.5.1",
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "@testing-library/jest-dom": "^6.9.1",
+    "jsdom": "^29.1.1",
+    "vitest": "^4.1.8"
   },
   "overrides": {
     "@types/react": "$@types/react",

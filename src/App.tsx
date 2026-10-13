@@ -5,6 +5,7 @@ import { Header } from "@/components/Header";
 import { CodeGrid } from "@/components/CodeGrid";
 import { AddAccount } from "@/components/AddAccount";
 import { DataTransfer } from "@/components/DataTransfer";
+import { Settings } from "@/components/Settings";
 import { TrashBin } from "@/components/TrashBin";
 import { AccountDetail } from "@/components/AccountDetail";
 import { QuickCode } from "@/components/QuickCode";
@@ -23,6 +24,7 @@ export default function App() {
   const showAddForm = useAccounts((s) => s.showAddForm);
   const showDataTransfer = useAccounts((s) => s.showDataTransfer);
   const showTrash = useAccounts((s) => s.showTrash);
+  const [showSettings, setShowSettings] = useState(false);
   const isDark = useAccounts((s) => s.isDark);
   const isThemeLocked = useAccounts((s) => s.isThemeLocked);
   const viewMode = useAccounts((s) => s.viewMode);
@@ -168,12 +170,17 @@ export default function App() {
     return accounts.find((a) => a.id === detailAccount.id) ?? detailAccount;
   }, [accounts, detailAccount]);
 
+  if (showSettings) {
+    return <Settings onBack={() => setShowSettings(false)} />;
+  }
+
   if (loadStatus !== "ready") {
     return (
       <VaultLoadState
         status={loadStatus}
         message={loadError}
         onRetry={load}
+        onSettings={() => setShowSettings(true)}
       />
     );
   }
@@ -264,6 +271,7 @@ export default function App() {
             onAdd={() => { setAddFormAction(undefined); setShowAddForm(true); }}
             onManageData={() => setShowDataTransfer(true)}
             onTrash={() => setShowTrash(true)}
+            onSettings={() => setShowSettings(true)}
             isDark={isDark}
             isThemeLocked={isThemeLocked}
             onToggleDark={toggleDark}
@@ -322,10 +330,12 @@ function VaultLoadState({
   status,
   message,
   onRetry,
+  onSettings,
 }: {
   status: "idle" | "loading" | "error";
   message: string | null;
   onRetry: () => Promise<void>;
+  onSettings: () => void;
 }) {
   const failed = status === "error";
   return (
@@ -339,20 +349,31 @@ function VaultLoadState({
         {failed ? <AlertCircle size={21} /> : <LoaderCircle className="animate-spin" size={21} />}
       </div>
       <h1 className="mt-4 text-[15px] font-semibold text-fg">
-        {failed ? "账户读取失败" : "正在读取本地账户"}
+        {failed ? "账户读取失败" : "正在读取账户"}
       </h1>
       <p className="mt-1.5 max-w-[280px] text-[12.5px] leading-relaxed text-fg-muted" role={failed ? "alert" : undefined}>
         {failed ? message : "请稍候，加载完成前不会写入或覆盖数据。"}
       </p>
       {failed && (
-        <button
-          type="button"
-          onClick={() => void onRetry()}
-          className="primary-control mt-4 flex min-h-9 items-center gap-1.5 rounded-lg bg-accent px-3.5 text-[12.5px] font-medium text-accent-fg"
-        >
-          <RefreshCw size={13} />
-          重试
-        </button>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => void onRetry()}
+            className="primary-control flex min-h-9 items-center gap-1.5 rounded-lg bg-accent px-3.5 text-[12.5px] font-medium text-accent-fg"
+          >
+            <RefreshCw size={13} />
+            重试
+          </button>
+          {onSettings && (
+            <button
+              type="button"
+              onClick={onSettings}
+              className="flex min-h-9 items-center gap-1.5 rounded-lg border bg-surface px-3.5 text-[12.5px] text-fg-muted hover:bg-surface-hover"
+            >
+              设置数据文件
+            </button>
+          )}
+        </div>
       )}
     </main>
   );

@@ -9,7 +9,7 @@ import type { AccountData } from "@/lib/types";
 interface QuickCodeProps {
   accounts: AccountData[];
   initialQuery: string;
-  onIncrement: (id: string) => void;
+  onIncrement: (id: string) => Promise<boolean> | void;
 }
 
 export function QuickCode({ accounts, initialQuery, onIncrement }: QuickCodeProps) {
@@ -41,13 +41,20 @@ export function QuickCode({ accounts, initialQuery, onIncrement }: QuickCodeProp
     pickingRef.current = true;
     setError("");
     try {
+      // HOTP 必须在输出前完成持久化递增，否则计数器未落盘会让同一个码被重复使用。
+      if (account.type === "hotp") {
+        const advanced = await onIncrement(account.id);
+        if (advanced === false) {
+          setError("HOTP 计数器未能保存，已取消发送");
+          return;
+        }
+      }
       const pasted = platform.pasteText?.(code) ?? false;
       if (!pasted) {
         await platform.copyText(code);
         platform.showNotification(`已复制 ${account.note || account.issuer || account.name} 验证码`);
         platform.hideWindow();
       }
-      if (account.type === "hotp") onIncrement(account.id);
     } catch {
       setError("未能粘贴或复制验证码，请重试");
     } finally {

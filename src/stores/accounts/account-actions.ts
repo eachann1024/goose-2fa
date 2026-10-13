@@ -1,17 +1,20 @@
+import { canEditVault } from "./write-guard";
 import { arrayMove } from "@dnd-kit/sortable";
 import type { AccountData, NewAccountInput } from "@/lib/types";
 import { normalizeNewAccountInput } from "@/lib/account-validation";
 import { UNGROUPED_KEY, nextGroupOrder } from "@/lib/groups";
-import type { AccountsState, StoreGet, StoreSet, StoreServices } from "./store-types";
+import type { AccountsState, StoreGet, StoreSet, StoreRuntime, StoreServices } from "./store-types";
 
-export function createAccountActions(set: StoreSet, get: StoreGet, services: StoreServices): Pick<AccountsState, "save" | "reorderAccounts" | "addAccount" | "importAccounts" | "updateNote" | "updateRemark" | "updateAccountGroup" | "incrementCounter"> {
+export function createAccountActions(set: StoreSet, get: StoreGet, runtime: StoreRuntime, services: StoreServices): Pick<AccountsState, "save" | "reorderAccounts" | "addAccount" | "importAccounts" | "updateNote" | "updateRemark" | "updateAccountGroup" | "incrementCounter"> {
   return {
     save: (accounts) => {
+      if (!canEditVault(get())) return;
       services.persist(accounts);
       set({ accounts });
     },
 
     reorderAccounts: (activeId, overId) => {
+      if (!canEditVault(get())) return;
       if (activeId === overId) return;
       const current = get().accounts;
       const from = current.findIndex((a) => a.id === activeId);
@@ -23,6 +26,7 @@ export function createAccountActions(set: StoreSet, get: StoreGet, services: Sto
     },
 
     addAccount: (input) => {
+      if (!canEditVault(get())) return;
       const normalized = normalizeNewAccountInput(input);
       if (!normalized) return;
       const displayName = normalized.issuer
@@ -49,6 +53,7 @@ export function createAccountActions(set: StoreSet, get: StoreGet, services: Sto
     },
 
     importAccounts: (inputs, importedGroups = []) => {
+      if (!canEditVault(get())) return;
       const now = Date.now();
       const selected = get().selectedGroup;
       const selectedGroupId =
@@ -96,6 +101,7 @@ export function createAccountActions(set: StoreSet, get: StoreGet, services: Sto
     },
 
     updateNote: (id, note) => {
+      if (!canEditVault(get())) return;
       const next = get().accounts.map((a) =>
         a.id === id ? { ...a, note } : a,
       );
@@ -104,6 +110,7 @@ export function createAccountActions(set: StoreSet, get: StoreGet, services: Sto
     },
 
     updateRemark: (id, remark) => {
+      if (!canEditVault(get())) return;
       const next = get().accounts.map((a) =>
         a.id === id ? { ...a, remark } : a,
       );
@@ -112,6 +119,7 @@ export function createAccountActions(set: StoreSet, get: StoreGet, services: Sto
     },
 
     updateAccountGroup: (id, groupId) => {
+      if (!canEditVault(get())) return;
       if (groupId !== null && !get().groups.some((group) => group.id === groupId)) return;
       const safeGroupId = groupId;
       const current = get().accounts.find((account) => account.id === id);
@@ -123,12 +131,25 @@ export function createAccountActions(set: StoreSet, get: StoreGet, services: Sto
       set({ accounts: next });
     },
 
-    incrementCounter: (id) => {
+    incrementCounter: async (id) => {
+      if (!canEditVault(get())) return false;
+      const account = get().accounts.find((a) => a.id === id);
+      if (!account || account.type !== "hotp") return false;
       const next = get().accounts.map((a) =>
         a.id === id ? { ...a, counter: a.counter + 1 } : a,
       );
-      services.persist(next);
       set({ accounts: next });
+      // 输出前先持久化递增（含数据源文件），失败则调用方不得显示或发送该验证码。
+      const writeVersionBefore = runtime.syncWriteVersion;
+      const saved = await services.persist(next);
+      if (!saved) return false;
+      if (!get().syncEnabled) return true;
+      await runtime.syncQueue;
+      // 绑定本次递增：只认「本次写入或载入确实发生（版本前进）」且「当前内容已落盘」。
+      const after = get();
+      return after.syncStatus === "success"
+        && runtime.syncWriteVersion > writeVersionBefore
+        && runtime.lastSyncFingerprint === services.syncFingerprint(after.syncPath, after.accounts, after.groups, after.trash);
     }
   };
 }
