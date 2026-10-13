@@ -11,9 +11,7 @@
  * priority 越大越先匹配；命中后该模块从其它组移除。test 用 `[\\/]`
  * 兼容 Windows 路径分隔符（rolldown 官方建议）。
  *
- * 注意：当前业务代码只直接用到 input/tooltip/input-group/dropdown-menu 四个
- * ui 组件，recharts / embla / react-day-picker 等仅被未引用的 ui 组件提及，
- * 会被 tree-shaking 丢弃；charts 组若无模块命中则不会生成空 chunk。
+ * 仅为实际使用的依赖设置独立分组，其余模块由 vendor 兜底。
  */
 export const codeSplittingGroups = [
   // React 运行时（react / react-dom / scheduler）—— 最稳定，单独长期缓存
@@ -32,12 +30,6 @@ export const codeSplittingGroups = [
   {
     name: "icons",
     test: /[\\/]node_modules[\\/]lucide-react[\\/]/,
-    priority: 30,
-  },
-  // 图表库（recharts 及其 d3-* 依赖）；被 tree-shaking 丢弃时此组不生成
-  {
-    name: "charts",
-    test: /[\\/]node_modules[\\/](recharts|d3-[^\\/]+|victory-vendor|internmap)[\\/]/,
     priority: 30,
   },
   // 其余第三方统一归入 vendor（兜底，优先级最低）
