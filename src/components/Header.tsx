@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, type CSSProperties, type ReactNode } from "react";
-import { Search, Plus, X, MoreHorizontal, Moon, Sun, ArrowDownUp, Trash2, Lock, LockOpen, LayoutGrid, List, Columns3, Palette, Check } from "lucide-react";
+import { Search, Plus, X, MoreHorizontal, Moon, Sun, ArrowDownUp, Trash2, Lock, LockOpen, LayoutGrid, List, Columns3, Palette, Check, Settings as SettingsIcon } from "lucide-react";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupButton } from "@/components/ui/input-group";
 import type { ViewMode } from "@/stores/useAccounts";
 import { ACCENT_OPTIONS, type AccentColor } from "@/lib/accent-color";
@@ -23,6 +23,7 @@ interface HeaderProps {
   onAdd: () => void;
   onManageData: () => void;
   onTrash: () => void;
+  onSettings: () => void;
   isDark: boolean;
   isThemeLocked: boolean;
   onToggleDark: () => void;
@@ -41,6 +42,7 @@ export function Header({
   onAdd,
   onManageData,
   onTrash,
+  onSettings,
   isDark,
   isThemeLocked,
   onToggleDark,
@@ -155,6 +157,10 @@ export function Header({
           <DropdownMenuItem onClick={onManageData} className="gap-2.5 text-[13px]">
             <ArrowDownUp size={14} />
             导入 / 导出
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onSettings} className="gap-2.5 text-[13px]">
+            <SettingsIcon size={14} />
+            设置
           </DropdownMenuItem>
           <DropdownMenuItem onClick={onTrash} className="gap-2.5 text-[13px]">
             <Trash2 size={14} />

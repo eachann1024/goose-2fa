@@ -21,6 +21,20 @@ interface Goose2FA {
   showWindow: () => void;
   saveToFile?: (content: string, defaultName: string) => boolean;
   readFromFile?: () => string | null;
+  getDefaultSyncPath?: () => string;
+  selectSyncPath?: (mode?: "existing" | "new") => string | null;
+  /** 解析到真实文件/真实父目录，避免同一文件出现两把锁 */
+  resolveSyncPath?: (path: string) => string;
+  /** 用户显式清理残留锁文件（锁从不按时间自动清理） */
+  clearSyncLock?: (lockPath: string) => boolean;
+  readSyncFile?: (path: string) => import("./platform/types").SyncFileRead;
+  writeSyncFile?: (
+    path: string,
+    content: string,
+    lockPath: string,
+    expectedContent: string | null,
+    createOnly?: boolean,
+  ) => import("./platform/types").SyncFileWrite;
   /** 接管 uTools 主搜索框作为子输入框 */
   setSubInput?: (
     handler: (text: string) => void,
