@@ -1,29 +1,24 @@
-# AI 审核 + 无致命问题自动合并（pr-ship 技能模板；放到 .github/workflows/ai-review-automerge.yml）
-# 审核：PR-Agent（The-PR-Agent/pr-agent，MIT，自托管 Docker Action，模型 key 自带）
-# 合并：同一 workflow 的 gate job 读取 PR-Agent 结构化输出（steps.pragent.outputs.review），
-#       只在“同仓库分支 + 带 bot-automerge 标签 + 作者在白名单 + 审核结论安全 + 其他检查全绿”时 squash 合并；
-#       任何异常、超时、解析失败一律不合并（fail closed），打 needs-human 标签。
-#
-# 用 pull_request_target：workflow 定义和 .pr_agent.toml 都取自默认分支，PR 自己改不了审核/闸门规则；
-# 本 workflow 不 checkout、不执行 PR 代码，PR-Agent 只通过 API 读 diff。
-#
-# 需要的 secret：GEMINI_API_KEY（Google AI Studio）。其他用自带的 GITHUB_TOKEN。
-#
-# 只给仓库主人的 PR 审核和合并：作者不是 ALLOWED_AUTHORS 的 PR 两个 job 都跳过（省额度、不发评论）。
-# 外部 fork 的 PR 两个 job 都跳过，拿不到 secret，也不会合并。
-# 评论精简：PR-Agent 不发评论（config.publish_output=false），结构化结论只进 job 输出；
-#   闸门通过时发一行结论，拦截时发一条短评论（结论 + 最多 3 条原因），详细结论写在 Actions 运行摘要里。
+# AI 审核使用 Codex CLI 与 CODEX_AUTH_JSON（ChatGPT 登录），参考鹅笔记。
+# 审核只读默认分支脚本和 PR diff，不执行 PR 代码；沿用原自动合并闸门。
+# workflow_dispatch 仅验收审核结果，不触发合并、评论或标签。
+# Secret 缺失、审核异常或输出不合法时失败，自动合并仍按原规则拦截。
 
 name: AI review & auto-merge
 
 on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: '同仓库 PR 编号（只读验收，可选已关闭 PR）'
+        required: true
+        type: string
   pull_request_target:
     types: [opened, reopened, synchronize, ready_for_review, labeled]
 
 permissions: {}
 
 concurrency:
-  group: ai-review-${{ github.event.pull_request.number }}
+  group: ai-review-${{ github.event.pull_request.number || format('validation-{0}', inputs.pr_number) }}
   cancel-in-progress: true
 
 env:
@@ -41,12 +36,13 @@ jobs:
     name: ai-review
     # 只审同仓库分支、作者是仓库主人的非草稿 PR（作者名与 env.ALLOWED_AUTHORS 保持一致）；labeled 事件只在加的是自动合并标签时才触发
     if: >-
+      github.event_name == 'pull_request_target' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.user.login == 'eachann1024' &&
       github.event.pull_request.draft == false &&
       (github.event.action != 'labeled' || github.event.label.name == 'bot-automerge')
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
       issues: write
@@ -54,27 +50,88 @@ jobs:
     outputs:
       review: ${{ steps.pragent.outputs.review }}
     steps:
-      - name: PR-Agent review (zh-CN)
+      - name: Checkout review script from default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Codex review (ChatGPT login)
         id: pragent
-        # 固定版本，避免 @main 漂移（2026-10-02 发布的 0.47.0）
-        uses: docker://pragent/pr-agent:0.47.0-github_action
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GOOGLE_AI_STUDIO.GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          github_action_config.enable_output: "true"
-          github_action_config.auto_review: "true"
-          github_action_config.auto_describe: "false"
-          github_action_config.auto_improve: "false"
-          github_action_config.pr_actions: '["opened","reopened","ready_for_review","labeled"]'
-          github_action_config.handle_push_trigger: "true"
-          # 云端 Agent 可能以 App 身份推送，默认会被当成 bot 提交跳过审核，导致闸门拿不到结果
-          github_action_config.push_trigger_ignore_bot_commits: "false"
-          github_action_config.push_commands: '["/review"]'
-          github_action_config.fail_on_tool_errors: "true"
-          # 不发 PR-Agent 自己的长评论、行内评论和标签；结构化结论仍写进 job 输出给闸门
-          config.publish_output: "false"
-          config.propagate_tool_errors: "true"
-          # 其余审核参数（中文、严重度字段、额外指令）在默认分支的 .pr_agent.toml 里
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          json=$(bash .github/codex-review/run.sh)
+          delim=REVIEW_JSON_EOF
+          {
+            echo "review<<$delim"
+            printf '%s\n' "$json"
+            echo "$delim"
+          } >> "$GITHUB_OUTPUT"
+
+
+  validate:
+    name: ai-review-validation
+    # 手动验收仅生成审核结果；不调用合并闸门、不写评论或标签。
+    if: github.event_name == 'workflow_dispatch' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout trusted review script
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Resolve owned same-repository PR
+        id: target
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ inputs.pr_number }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, subprocess
+          pr, repo = os.environ['PR'], os.environ['REPO']
+          if not re.fullmatch(r'[1-9][0-9]*', pr):
+              raise SystemExit('PR 编号不合法')
+          info = json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/pulls/{pr}'], text=True))
+          if info['user']['login'] != 'eachann1024' or (info['head'].get('repo') or {}).get('full_name') != repo:
+              raise SystemExit('只允许仓库主人的同仓库 PR')
+          sha = info['head']['sha']
+          if not re.fullmatch(r'[0-9a-f]{40}', sha):
+              raise SystemExit('PR 提交不合法')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write(f'sha={sha}\n')
+          PY
+      - name: Validate Codex review (read-only)
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ inputs.pr_number }}
+          HEAD_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          bash .github/codex-review/run.sh > "$RUNNER_TEMP/validated-review.json"
+          {
+            echo '## Codex 审核验收'
+            echo
+            echo '```json'
+            cat "$RUNNER_TEMP/validated-review.json"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload review result
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-review-validation
+          path: ${{ runner.temp }}/validated-review.json
+          if-no-files-found: error
+          retention-days: 7
 
   gate:
     name: ai-merge-gate

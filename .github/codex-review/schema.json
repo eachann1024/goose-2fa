@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["merge_recommendation", "risk_level", "security_concerns", "key_issues_to_review"],
+  "properties": {
+    "merge_recommendation": {
+      "type": "string",
+      "enum": ["safe_to_merge", "merge_with_caution", "changes_required"]
+    },
+    "risk_level": { "type": "string", "enum": ["low", "medium", "high"] },
+    "security_concerns": { "type": "string" },
+    "key_issues_to_review": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["relevant_file", "issue_header", "issue_content"],
+        "properties": {
+          "relevant_file": { "type": "string" },
+          "issue_header": { "type": "string" },
+          "issue_content": { "type": "string" }
+        }
+      }
+    }
+  }
+}
