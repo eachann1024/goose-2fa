@@ -44,3 +44,4 @@
 - 沿用本项目的版本、产物与宿主边界；自动创建 GitHub 稳定版不自动授权 npm 发布、应用商店提交或生产部署，这些操作继续遵守各自现有流程。
 - 本规则必须由默认分支上的定时发布工作流配套执行；只有规则文本或普通构建工作流不代表自动发布已启用。新增或调整发布流程时同步本节，并核对时间、分支、跳过条件、必要检查及发布产物。
 - 发布产物限 uTools 插件；现有 `.github/workflows/release.yml` 仅构建并上传 artifact，不能视为已经创建 GitHub 稳定版。
+- 配套入口为 `.github/workflows/daily-stable.yml` 与 `.github/stable-release.json`；只从 `main` 运行，手动触发默认仅验证，明确勾选 `publish` 才发布。GitHub Release 资产为生产构建目录 ZIP，解压后导入开发插件目录，不能称为 `.upx` 安装包，也不自动提交插件商店。

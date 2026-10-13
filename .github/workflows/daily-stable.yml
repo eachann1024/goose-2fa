@@ -1,0 +1,119 @@
+name: Daily stable uTools release
+
+on:
+  schedule:
+    # 08:00 Asia/Shanghai; GitHub may start later when runners are queued.
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish a stable GitHub Release after validation
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-stable-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.prepare.outputs.build }}
+      commit: ${{ steps.prepare.outputs.commit }}
+      tag: ${{ steps.prepare.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prepare immutable stable release
+        id: prepare
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            python3 .github/scripts/stable-release.py prepare --force-build
+          else
+            python3 .github/scripts/stable-release.py prepare
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.prepare.outputs.build == 'true'
+        with:
+          node-version: '22'
+      - uses: oven-sh/setup-bun@v2
+        if: steps.prepare.outputs.build == 'true'
+        with:
+          bun-version: '1.3.14'
+      - name: Install dependencies
+        if: steps.prepare.outputs.build == 'true'
+        run: bun install --frozen-lockfile
+      - name: Build production uTools plugin
+        if: steps.prepare.outputs.build == 'true'
+        run: bun run build
+      - name: Verify plugin manifests and production files
+        if: steps.prepare.outputs.build == 'true'
+        run: |
+          python3 - <<'PYTHON'
+          import json
+          from pathlib import Path
+
+          for name in ['dist-utools']:
+              directory = Path(name).resolve()
+              manifest = json.loads((directory / 'plugin.json').read_text())
+              required = ['preload', 'logo']
+              if name != 'dist-quicknote':
+                  required.append('main')
+              else:
+                  assert (directory / 'quicknote.html').is_file(), name
+              for key in required:
+                  value = manifest.get(key)
+                  assert isinstance(value, str) and value, (name, key)
+                  target = (directory / value).resolve()
+                  assert target.is_relative_to(directory) and target.is_file(), (name, key)
+              assert json.loads((directory / 'package.json').read_text())['type'] == 'commonjs', name
+              assert not list(directory.rglob('*.map')), name
+          PYTHON
+      - name: Package independent plugin directories
+        if: steps.prepare.outputs.build == 'true'
+        run: python3 .github/scripts/stable-release.py package
+      - uses: actions/upload-artifact@v4
+        if: steps.prepare.outputs.build == 'true'
+        with:
+          name: stable-release-${{ github.sha }}
+          path: .stable-release/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    if: >-
+      needs.build.outputs.build == 'true' && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.publish))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: stable-release-${{ github.sha }}
+          path: .stable-release/
+      - name: Publish verified stable GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PUBLISH_ALLOWED: 'true'
+        run: python3 .github/scripts/stable-release.py publish
