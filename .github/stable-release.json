@@ -1,0 +1,35 @@
+{
+  "name": "鹅的验证",
+  "branch": "main",
+  "version_file": "package.json",
+  "inputs": [
+    "src",
+    "public",
+    "utools",
+    "index.html",
+    "plugin.json",
+    "package.json",
+    "bun.lock",
+    "tsconfig.json",
+    "tsconfig.app.json",
+    "tsconfig.node.json",
+    "vite.config.ts",
+    "vite.config.utools.ts",
+    "vite.chunks.ts",
+    "vite.debug.ts",
+    ".github/scripts/stable-release.py",
+    ".github/stable-release.json",
+    ".github/workflows/daily-stable.yml"
+  ],
+  "assets": [
+    {
+      "name": "goose-2fa-utools-plugin.zip",
+      "parts": [
+        {
+          "path": "dist-utools"
+        }
+      ]
+    }
+  ],
+  "notes": "生产构建目录 ZIP：解压后可作为 uTools／ZTools 开发插件目录导入；这不是 .upx 安装包，也不会自动发布到插件商店。保留各插件已有 manifest 版本。"
+}
