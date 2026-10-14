@@ -19,7 +19,8 @@
 
 ## 验证
 
-- 代码改动运行 `bun run build`。
+- 每次代码修改完成后、提交前，必须立即执行 `bun run build`，完整构建 uTools 插件；不得用类型检查、浏览器预览、单独的 Vite／Web 构建或 Electron 桌面构建代替。构建失败必须修复并重新构建，未通过不得宣称完成。
+- 构建后核对 `dist-utools/` 的插件产物，确认 `plugin.json` 声明的入口和 preload 文件存在；仅文档／规则改动无需构建。
 - 改颜色、悬停或选中态时，检查构建产物不存在 `color-mix|oklch|lab\(|lch\(`，并在 uTools 真机核对。
 - 只有任务需要页面操作或视觉验收时才读取全局 `browser-use` skill。
 
