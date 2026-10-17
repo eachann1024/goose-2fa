@@ -1,7 +1,8 @@
 import type { AccountData, VaultGroup } from "./types";
 
-/** 一级「未分组」筛选键（不是真实 VaultGroup.id） */
+/** 一级「默认」筛选键（不是真实 VaultGroup.id） */
 export const UNGROUPED_KEY = "__ungrouped__";
+export const DEFAULT_GROUP_NAME = "默认";
 export const MAX_GROUP_NAME_LENGTH = 20;
 
 export function isUngrouped(account: AccountData): boolean {
@@ -51,13 +52,15 @@ export function buildGroupTallies(
     order: g.order,
   }));
 
-  // 未分组始终可点，便于整理
-  tallies.push({
-    id: UNGROUPED_KEY,
-    name: "未分组",
-    count: ungrouped,
-    order: Number.MAX_SAFE_INTEGER,
-  });
+  // 尚无自定义分组时不单独出现；建过分组后以「默认」承接没归属的账户
+  if (sorted.length > 0) {
+    tallies.push({
+      id: UNGROUPED_KEY,
+      name: DEFAULT_GROUP_NAME,
+      count: ungrouped,
+      order: Number.MAX_SAFE_INTEGER,
+    });
+  }
 
   return tallies;
 }
@@ -74,7 +77,7 @@ export function resolveSelectedGroup(
   accounts: AccountData[],
 ): string | null {
   if (selected === null) return null;
-  if (selected === UNGROUPED_KEY) return UNGROUPED_KEY;
+  if (selected === UNGROUPED_KEY) return groups.length > 0 ? UNGROUPED_KEY : null;
   if (groups.some((g) => g.id === selected)) return selected;
   // 分组列表尚未 hydrate 且 accounts 也空时保留，避免闪断
   if (groups.length === 0 && accounts.length === 0) return selected;
