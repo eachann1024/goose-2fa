@@ -48,7 +48,7 @@ jobs:
       issues: write
       pull-requests: write
     outputs:
-      review: ${{ steps.pragent.outputs.review }}
+      review_b64: ${{ steps.pragent.outputs.review_b64 }}
     steps:
       - name: Checkout review script from default branch
         uses: actions/checkout@v4
@@ -65,12 +65,8 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           json=$(bash .github/codex-review/run.sh)
-          delim=REVIEW_JSON_EOF
-          {
-            echo "review<<$delim"
-            printf '%s\n' "$json"
-            echo "$delim"
-          } >> "$GITHUB_OUTPUT"
+          # 单行 base64：避免含 { } 的行被当成密钥掩码而丢弃输出，也不依赖分隔符。
+          echo "review_b64=$(printf '%s' "$json" | base64 -w0)" >> "$GITHUB_OUTPUT"
 
 
   validate:
@@ -159,8 +155,10 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REVIEW_RESULT: ${{ needs.review.result }}
-          REVIEW_JSON: ${{ needs.review.outputs.review }}
+          REVIEW_B64: ${{ needs.review.outputs.review_b64 }}
         run: |
+          REVIEW_JSON="$(printf '%s' "$REVIEW_B64" | base64 -d 2>/dev/null || true)"
+          export REVIEW_JSON
           python3 - <<'PY'
           import json, os, re, subprocess, sys, time
 
