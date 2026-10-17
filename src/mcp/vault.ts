@@ -82,7 +82,7 @@ export function loadSafeVault(backupPath: string | undefined): SafeVault {
 export function summarizeVault(vault: SafeVault) {
   const byGroup = new Map<string, number>();
   for (const account of vault.accounts) {
-    const group = account.group ?? "未分组";
+    const group = account.group ?? (vault.groups.length > 0 ? "默认" : "全部");
     byGroup.set(group, (byGroup.get(group) ?? 0) + 1);
   }
   const sortedGroups = [...byGroup.entries()].sort(([, left], [, right]) => right - left);

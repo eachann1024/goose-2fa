@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, FolderPlus, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useDroppable } from "@dnd-kit/core";
 import type { GroupTally } from "@/lib/groups";
-import { MAX_GROUP_NAME_LENGTH, UNGROUPED_KEY } from "@/lib/groups";
+import { DEFAULT_GROUP_NAME, MAX_GROUP_NAME_LENGTH, UNGROUPED_KEY } from "@/lib/groups";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -192,7 +192,7 @@ export function GroupSegments({
           ),
         )}
 
-        {ungrouped && (ungrouped.count > 0 || selected === UNGROUPED_KEY || dropEnabled) && (
+        {ungrouped && (
           <SegmentChip
             label={ungrouped.name}
             count={ungrouped.count}
@@ -263,7 +263,7 @@ export function GroupSegments({
       {deleteCandidate && (
         <div role="alertdialog" aria-label="确认删除分组" className="mt-2 flex items-center gap-2 rounded-lg bg-surface-hover px-2.5 py-2">
           <p className="min-w-0 flex-1 break-words text-[11px] leading-relaxed text-fg-muted">
-            删除“{deleteCandidate.name}”？{deleteCandidate.count > 0 ? `${deleteCandidate.count} 个账户会移到未分组。` : "此分组没有账户。"}
+            删除“{deleteCandidate.name}”？{deleteCandidate.count > 0 ? `${deleteCandidate.count} 个账户会移到${DEFAULT_GROUP_NAME}。` : "此分组没有账户。"}
           </p>
           <button type="button" onClick={() => setDeleteCandidate(null)} className="min-h-8 rounded-lg px-2 text-[11px] text-fg-muted transition-colors hover:bg-surface active:bg-surface-active">取消</button>
           <button type="button" onClick={() => { onDelete(deleteCandidate.id); setDeleteCandidate(null); }} className="min-h-8 rounded-lg bg-timer-low px-2.5 text-[11px] font-medium text-danger-fg transition-[filter,transform] hover:brightness-95 active:translate-y-px active:brightness-90">删除</button>

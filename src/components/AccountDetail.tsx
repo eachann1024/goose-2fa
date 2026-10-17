@@ -200,7 +200,7 @@ export function AccountDetail({
 
   const remark = account.remark ?? "";
   const groupOptions = [
-    { value: null, label: "未分组" },
+    { value: null, label: groups.length > 0 ? "默认" : "全部" },
     ...[...groups]
       .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "zh"))
       .map((group) => ({ value: group.id, label: group.name })),
@@ -377,7 +377,7 @@ export function AccountDetail({
               className="group/select h-9 w-full min-w-0 text-[12.5px]"
               aria-label="移动到分组"
             >
-              <SelectValue placeholder="未分组" />
+              <SelectValue placeholder={groups.length > 0 ? "默认" : "全部"} />
             </SelectTrigger>
             <SelectContent align="start" alignItemWithTrigger={false}>
               {groupOptions.map((option) => (

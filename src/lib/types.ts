@@ -26,7 +26,7 @@ export interface AccountData {
   originalName?: string;
   note?: string;
   remark?: string;
-  /** 一级分组 id；null/缺省 = 未分组 */
+  /** 一级分组 id；null/缺省 = 默认（无自定义分组时不单独展示） */
   groupId?: string | null;
   deletedAt?: number;
 }
