@@ -1,35 +1,12 @@
-import { useState } from "react";
 import { Bell, X } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
-import { UPDATE_NOTICES } from "@/lib/update-notices";
-
-const READ_KEY = "goose-2fa-notices-read";
-
-function readLastSeen(): string | null {
-  try {
-    return localStorage.getItem(READ_KEY);
-  } catch {
-    return null;
-  }
-}
+import { useUpdateNotices } from "@/hooks/useUpdateNotices";
 
 export function UpdateNotifications() {
-  const [lastSeen, setLastSeen] = useState(readLastSeen);
-  const latestId = UPDATE_NOTICES[0]?.id;
-  const unread = Boolean(latestId && lastSeen !== latestId);
-
-  const markRead = (open: boolean) => {
-    if (!open || !latestId) return;
-    setLastSeen(latestId);
-    try {
-      localStorage.setItem(READ_KEY, latestId);
-    } catch {
-      // 存储不可用时仍可查看通知，当前会话保持已读。
-    }
-  };
+  const { open, onOpenChange, unread, notices, status, retry, currentVersion } = useUpdateNotices();
 
   return (
-    <Popover.Root onOpenChange={markRead}>
+    <Popover.Root open={open} onOpenChange={onOpenChange}>
       <Popover.Trigger
         className="icon-control relative rounded-lg p-2 text-fg-muted"
         aria-label={unread ? "更新通知，有未读更新" : "更新通知"}
@@ -49,20 +26,28 @@ export function UpdateNotifications() {
               </Popover.Close>
             </div>
             <div className="max-h-[min(360px,60vh)] overflow-y-auto px-4">
-              {UPDATE_NOTICES.length === 0 ? (
-                <p className="py-4 text-[13px] text-fg-muted">暂无更新通知</p>
-              ) : UPDATE_NOTICES.map((notice) => (
+              {notices.length === 0 ? (
+                <p className="py-4 text-[13px] text-fg-muted">
+                  {status === "checking" ? "正在检查更新…" : `当前 v${currentVersion}，暂无新的更新记录`}
+                </p>
+              ) : notices.map((notice) => (
                 <article key={notice.id} className="border-b py-4 last:border-b-0">
                   <div className="mb-2 flex items-center justify-between gap-3 text-[12px]">
                     <h3 className="font-semibold">v{notice.version}</h3>
                     <time dateTime={notice.date} className="text-fg-muted">{notice.date}</time>
                   </div>
                   <ul className="list-disc space-y-1.5 pl-4 text-[13px] leading-relaxed text-fg-muted">
-                    {notice.items.map((item) => <li key={item}>{item}</li>)}
+                    {notice.items.map((item) => <li key={item} className="break-words">{item}</li>)}
                   </ul>
                 </article>
               ))}
             </div>
+            {status === "local" && (
+              <div className="flex items-center justify-between gap-3 border-t px-4 py-3 text-[13px]">
+                <p role="status" className="text-fg-muted">暂用本地更新记录</p>
+                <button onClick={retry} className="shrink-0 rounded-sm text-fg hover:underline focus-visible:outline">重试</button>
+              </div>
+            )}
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>

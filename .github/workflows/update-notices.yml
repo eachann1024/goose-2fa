@@ -1,0 +1,43 @@
+name: Sync published update notices
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/update-notices.yml
+      - .github/scripts/publish_notice_feed.py
+  release:
+    types: [published, edited]
+  workflow_run:
+    workflows: [Daily stable uTools release]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-notice-mirrors
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Sync the latest published stable release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: python3 .github/scripts/publish_notice_feed.py
+      - name: Purge the published feed from CDN caches
+        run: >-
+          curl --fail --silent --show-error --max-time 20 --retry 2
+          https://purge.jsdelivr.net/gh/eachann1024/goose-2fa@main/public/update-notices.json
