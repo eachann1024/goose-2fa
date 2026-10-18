@@ -58,6 +58,9 @@ try {
     const pluginConfig = JSON.parse(
       fs.readFileSync(pluginConfigPath, "utf-8"),
     );
+    pluginConfig.version = JSON.parse(
+      fs.readFileSync(path.join(rootDir, "package.json"), "utf-8"),
+    ).version;
     pluginConfig.main = "index.html";
     pluginConfig.preload = "preload.js";
     fs.writeFileSync(

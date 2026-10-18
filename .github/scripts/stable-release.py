@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 import subprocess
 import zipfile
-
+from release_notes import write_release_notes
 ROOT = Path.cwd()
 CONFIG = json.loads((ROOT / '.github/stable-release.json').read_text())
 STATE = ROOT / '.stable-release'
@@ -206,9 +206,7 @@ def package():
     sums = [f'{r["sha256"]}  {r["name"]}' for r in records]
     manifest_hash = hashlib.sha256((target / 'release-manifest.json').read_bytes()).hexdigest()
     (target / 'SHA256SUMS.txt').write_text('\n'.join(sums + [f'{manifest_hash}  release-manifest.json']) + '\n')
-    notes = [CONFIG.get('notes', ''), '', f'Source commit: `{plan["commit"]}`',
-             '', 'Assets include SHA256SUMS.txt and release-manifest.json.']
-    (STATE / 'notes.md').write_text('\n'.join(notes) + '\n')
+    write_release_notes(ROOT, STATE, CONFIG, plan)
     print(json.dumps({'tag': plan['tag'], 'assets': records}))
 
 
