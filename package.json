@@ -1,7 +1,7 @@
 {
   "name": "goose-2fa",
   "private": true,
-  "version": "0.1.6",
+  "version": "0.1.12",
   "license": "MIT",
   "type": "module",
   "scripts": {
