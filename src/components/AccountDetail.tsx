@@ -1,17 +1,10 @@
-import { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react";
-import { ArrowLeft, Check, Copy, Trash2, MapPin, Clock, Globe, Monitor, Tag, Pencil, FolderOpen } from "lucide-react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { ArrowLeft, Check, Copy, Trash2 } from "lucide-react";
 import { useOtpCode } from "@/hooks/useOtpCode";
 import { formatCode } from "@/lib/otp";
 import type { AccountData, VaultGroup } from "@/lib/types";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { EditableText } from "@/components/ui/editable-text";
+import { AccountMetadata } from "@/components/AccountMetadata";
 
 interface AccountDetailProps {
   account: AccountData;
@@ -22,21 +15,6 @@ interface AccountDetailProps {
   onUpdateNote: (id: string, note: string) => void;
   onUpdateRemark: (id: string, remark: string) => void;
   onUpdateGroup: (id: string, groupId: string | null) => void;
-}
-
-const DAY_NAMES = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-
-function formatCreatedAt(ts: number): string {
-  const d = new Date(ts);
-  const day = DAY_NAMES[d.getDay()];
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${day} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
-
-function formatLocation(lat: number, lng: number): string {
-  const latDir = lat >= 0 ? "N" : "S";
-  const lngDir = lng >= 0 ? "E" : "W";
-  return `${Math.abs(lat).toFixed(4)}° ${latDir}, ${Math.abs(lng).toFixed(4)}° ${lngDir}`;
 }
 
 export function AccountDetail({
@@ -53,15 +31,7 @@ export function AccountDetail({
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [editingNote, setEditingNote] = useState(false);
-  const [noteValue, setNoteValue] = useState("");
-  const [editingRemark, setEditingRemark] = useState(false);
-  const [remarkValue, setRemarkValue] = useState(account.remark ?? "");
   const [barReady, setBarReady] = useState(false);
-  const [nameOverflow, setNameOverflow] = useState(false);
-  const noteInputRef = useRef<HTMLInputElement>(null);
-  const remarkInputRef = useRef<HTMLInputElement>(null);
-  const nameSpanRef = useRef<HTMLSpanElement>(null);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -77,26 +47,6 @@ export function AccountDetail({
     || (account.issuer ? `${account.issuer} (${account.name})` : account.name);
 
   const displayName = account.note || originalName;
-
-  useLayoutEffect(() => {
-    const el = nameSpanRef.current;
-    if (!el) return;
-    setNameOverflow(el.scrollWidth > el.clientWidth + 1);
-  }, [displayName]);
-
-  useEffect(() => {
-    if (editingNote) {
-      const el = noteInputRef.current;
-      if (el) {
-        el.focus();
-        el.select();
-      }
-    }
-  }, [editingNote]);
-
-  useEffect(() => {
-    if (editingRemark) remarkInputRef.current?.focus();
-  }, [editingRemark]);
 
   useEffect(() => () => clearTimeout(copyTimerRef.current), []);
 
@@ -120,94 +70,9 @@ export function AccountDetail({
     onDelete(account.id);
   }, [confirmingDelete, account.id, onDelete]);
 
-  const handleStartEditName = useCallback(() => {
-    setNoteValue(displayName);
-    setEditingNote(true);
-  }, [displayName]);
-
-  const handleNoteSave = useCallback(() => {
-    const trimmed = noteValue.trim();
-    // 空 / 与原始名相同 → 清空 note 恢复默认
-    const next = (!trimmed || trimmed === originalName) ? "" : trimmed;
-    if (next !== (account.note ?? "")) {
-      onUpdateNote(account.id, next);
-    }
-    setEditingNote(false);
-  }, [noteValue, account.id, account.note, originalName, onUpdateNote]);
-
-  const handleNoteKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.nativeEvent.isComposing) return;
-    if (e.key === "Enter") handleNoteSave();
-    if (e.key === "Escape") {
-      setEditingNote(false);
-    }
-  }, [handleNoteSave]);
-
-  const handleRemarkSave = useCallback(() => {
-    const trimmed = remarkValue.trim();
-    if (trimmed !== (account.remark ?? "")) {
-      onUpdateRemark(account.id, trimmed);
-    }
-    setEditingRemark(false);
-  }, [remarkValue, account.id, account.remark, onUpdateRemark]);
-
-  const handleRemarkKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.nativeEvent.isComposing) return;
-    if (e.key === "Enter") handleRemarkSave();
-    if (e.key === "Escape") {
-      setRemarkValue(account.remark ?? "");
-      setEditingRemark(false);
-    }
-  }, [handleRemarkSave, account.remark]);
-
-  const meta = account.meta;
-
-  const metaItems: { icon: React.ReactNode; label: string; value: string }[] = [];
-
-  if (originalName !== displayName) {
-    metaItems.push({
-      icon: <Tag size={13} />,
-      label: "原始名称",
-      value: originalName,
-    });
-  }
-
-  const createdAt = formatCreatedAt(account.createdAt);
-
-  if (meta?.location) {
-    metaItems.push({
-      icon: <MapPin size={13} />,
-      label: "添加位置",
-      value: formatLocation(meta.location.latitude, meta.location.longitude),
-    });
-  }
-
-  if (meta?.timezone) {
-    metaItems.push({
-      icon: <Globe size={13} />,
-      label: "时区",
-      value: meta.timezone,
-    });
-  }
-
-  if (meta?.platform) {
-    metaItems.push({
-      icon: <Monitor size={13} />,
-      label: "设备",
-      value: meta.platform,
-    });
-  }
-
   const remark = account.remark ?? "";
-  const groupOptions = [
-    { value: null, label: groups.length > 0 ? "默认" : "全部" },
-    ...[...groups]
-      .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "zh"))
-      .map((group) => ({ value: group.id, label: group.name })),
-  ];
 
   return (
-    <TooltipProvider delay={200}>
     <div className="flex min-h-screen flex-col bg-bg px-5 pb-6 pt-4">
       {/* 顶栏 */}
       <div className="mb-6 flex items-center gap-2">
@@ -224,75 +89,27 @@ export function AccountDetail({
         </span>
       </div>
 
-      {/* 名称（可编辑） + 备注 */}
       <div className="mb-5">
-        {editingNote ? (
-          <Input
-            ref={noteInputRef}
-            type="text"
-            value={noteValue}
-            onChange={(e) => setNoteValue(e.target.value)}
-            onBlur={handleNoteSave}
-            onKeyDown={handleNoteKeyDown}
-            placeholder={originalName}
-            className="h-[44px] px-3.5 py-0 text-[18px] font-semibold leading-none"
-            style={{ caretColor: "var(--color-accent)" }}
-          />
-        ) : (
-          <button
-            onClick={handleStartEditName}
-            className="group flex h-[44px] w-full min-w-0 items-center gap-2 rounded-cell border border-transparent px-3.5 text-left transition-colors hover:border-border hover:bg-surface active:bg-surface-active"
-          >
-            {nameOverflow ? (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <span
-                      ref={nameSpanRef}
-                      className="min-w-0 flex-1 truncate text-[18px] font-semibold leading-none text-fg"
-                    >
-                      {displayName}
-                    </span>
-                  }
-                />
-                <TooltipContent>{displayName}</TooltipContent>
-              </Tooltip>
-            ) : (
-              <span
-                ref={nameSpanRef}
-                className="min-w-0 flex-1 truncate text-[18px] font-semibold leading-none text-fg"
-              >
-                {displayName}
-              </span>
-            )}
-            <Pencil size={13} className="shrink-0 text-fg-faint" />
-          </button>
-        )}
-
-        {/* 备注行 */}
+        <EditableText
+          key={`${account.id}-name`}
+          label="账户名称"
+          value={displayName}
+          placeholder={originalName}
+          variant="heading"
+          selectOnFocus
+          onSave={(value) => {
+            const next = !value || value === originalName ? "" : value;
+            if (next !== (account.note ?? "")) onUpdateNote(account.id, next);
+          }}
+        />
         <div className="mt-2">
-          {editingRemark ? (
-            <Input
-              ref={remarkInputRef}
-              type="text"
-              value={remarkValue}
-              onChange={(e) => setRemarkValue(e.target.value)}
-              onBlur={handleRemarkSave}
-              onKeyDown={handleRemarkKeyDown}
-              placeholder="添加备注"
-              className="h-[32px] px-3.5 py-0 text-[12.5px] leading-none"
-            />
-          ) : (
-            <button
-              onClick={() => { setRemarkValue(remark); setEditingRemark(true); }}
-              className="group flex h-[32px] w-full items-center gap-2 rounded-cell border border-transparent px-3.5 text-left transition-colors hover:border-border hover:bg-surface active:bg-surface-active"
-            >
-              <span className={`min-w-0 flex-1 truncate text-[12.5px] leading-none ${remark ? "text-fg-muted" : "text-fg-faint"}`}>
-                {remark || "添加备注"}
-              </span>
-              <Pencil size={11} className="shrink-0 text-fg-faint" />
-            </button>
-          )}
+          <EditableText
+            key={`${account.id}-remark`}
+            label="账户备注"
+            value={remark}
+            placeholder="添加备注"
+            onSave={(value) => onUpdateRemark(account.id, value)}
+          />
         </div>
       </div>
 
@@ -361,67 +178,13 @@ export function AccountDetail({
         </div>
       )}
 
-      {/* 分组与添加时间 */}
-      <div className="mb-4 grid grid-cols-2 gap-3">
-        <section className="flex min-w-0 flex-col rounded-cell border bg-surface px-3.5 py-3" aria-labelledby="account-group-label">
-          <div className="mb-2 flex items-center gap-2">
-            <FolderOpen size={13} className="text-fg-faint" />
-            <span id="account-group-label" className="text-[11px] text-fg-faint">分组</span>
-          </div>
-          <Select<string>
-            items={groupOptions}
-            value={account.groupId ?? null}
-            onValueChange={(value) => onUpdateGroup(account.id, value)}
-          >
-            <SelectTrigger
-              className="group/select h-9 w-full min-w-0 text-[12.5px]"
-              aria-label="移动到分组"
-            >
-              <SelectValue placeholder={groups.length > 0 ? "默认" : "全部"} />
-            </SelectTrigger>
-            <SelectContent align="start" alignItemWithTrigger={false}>
-              {groupOptions.map((option) => (
-                  <SelectItem key={option.value ?? "ungrouped"} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-          {groups.length === 0 && (
-            <p className="mt-2 text-[10.5px] leading-snug text-fg-faint">
-              可在主界面创建分组
-            </p>
-          )}
-        </section>
-
-        <section className="flex min-w-0 flex-col rounded-cell border bg-surface px-3.5 py-3" aria-labelledby="account-created-label">
-          <div className="mb-2 flex items-center gap-2">
-            <Clock size={13} className="text-fg-faint" />
-            <span id="account-created-label" className="text-[11px] text-fg-faint">添加时间</span>
-          </div>
-          <time
-            dateTime={new Date(account.createdAt).toISOString()}
-            className="break-words text-[12px] leading-relaxed text-fg-muted"
-          >
-            {createdAt}
-          </time>
-        </section>
-      </div>
-
-      {/* 元数据 */}
-      {metaItems.length > 0 && <div className="mb-6 rounded-cell border bg-surface p-4">
-        <div className="flex flex-col gap-3">
-          {metaItems.map((item) => (
-            <div key={item.label} className="flex items-start gap-2.5">
-              <span className="mt-0.5 shrink-0 text-fg-faint">{item.icon}</span>
-              <div className="min-w-0">
-                <span className="block text-[11px] text-fg-faint">{item.label}</span>
-                <span className="block text-[12.5px] text-fg-muted">{item.value}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>}
+      <AccountMetadata
+        account={account}
+        groups={groups}
+        originalName={originalName}
+        displayName={displayName}
+        onUpdateGroup={onUpdateGroup}
+      />
 
       {/* 删除 */}
       <div className="mt-auto">
@@ -455,6 +218,5 @@ export function AccountDetail({
         )}
       </div>
     </div>
-    </TooltipProvider>
   );
 }
