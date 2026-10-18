@@ -119,14 +119,13 @@ export function refreshNoticeFeed(force = false): Promise<NoticeFeed> {
     const ordered = available.reverse().sort((a, b) => compareVersions(a.version, b.version));
     const remote = mergeUpdateNotices(...ordered.map((feed) => feed.notices));
     const notices = mergeUpdateNotices(cached.notices, remote);
-    const latestVersion = ordered[ordered.length - 1]!.version;
-    const stale = Boolean(notices[0] && compareVersions(latestVersion, notices[0].version) < 0);
-    const checkedAt = stale ? cached.checkedAt : Date.now();
+    // 内置日志来自当前安装包；线上发布清单落后不代表请求失败。
+    const checkedAt = Date.now();
     const markdown = serializeNotices(notices);
     if (markdown.length <= MAX_CHANGELOG_SIZE) {
       writeNoticeStorage(CACHE_KEY, JSON.stringify({ markdown, checkedAt }));
     }
-    return { notices, checkedAt, status: stale ? "local" : "fresh" } satisfies NoticeFeed;
+    return { notices, checkedAt, status: "fresh" } satisfies NoticeFeed;
   })().finally(() => { inFlight = undefined; });
   return inFlight;
 }

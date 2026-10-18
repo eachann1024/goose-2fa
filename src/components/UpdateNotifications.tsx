@@ -27,9 +27,16 @@ export function UpdateNotifications() {
             </div>
             <div className="max-h-[min(360px,60vh)] overflow-y-auto px-4">
               {notices.length === 0 ? (
-                <p className="py-4 text-[13px] text-fg-muted">
-                  {status === "checking" ? "正在检查更新…" : `当前 v${currentVersion}，暂无新的更新记录`}
-                </p>
+                <div className="py-4 text-[13px] text-fg-muted">
+                  <p role="status">
+                    {status === "checking" ? "正在检查更新…"
+                      : status === "local" ? "暂时无法获取更新记录"
+                        : `当前 v${currentVersion}，暂无新的更新记录`}
+                  </p>
+                  {status === "local" && (
+                    <button onClick={retry} className="mt-2 rounded-sm text-fg hover:underline">重新检查</button>
+                  )}
+                </div>
               ) : notices.map((notice) => (
                 <article key={notice.id} className="border-b py-4 last:border-b-0">
                   <div className="mb-2 flex items-center justify-between gap-3 text-[12px]">
@@ -42,12 +49,6 @@ export function UpdateNotifications() {
                 </article>
               ))}
             </div>
-            {status === "local" && (
-              <div className="flex items-center justify-between gap-3 border-t px-4 py-3 text-[13px]">
-                <p role="status" className="text-fg-muted">暂用本地更新记录</p>
-                <button onClick={retry} className="shrink-0 rounded-sm text-fg hover:underline focus-visible:outline">重试</button>
-              </div>
-            )}
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>
