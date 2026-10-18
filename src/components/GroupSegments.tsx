@@ -90,7 +90,7 @@ export function GroupSegments({
     <div className="group-segments flex min-h-[45px] shrink-0 flex-col justify-center border-b border-border bg-bg py-2 pl-3">
       <div
         ref={scrollerRef}
-        className="flex items-center gap-1 overflow-x-auto pr-[11.75rem] scrollbar-none [scroll-padding-left:0.75rem] [scroll-padding-right:11.75rem]"
+        className="flex items-center gap-1 overflow-x-auto pr-[14.25rem] scrollbar-none [scroll-padding-left:0.75rem] [scroll-padding-right:14.25rem]"
         role="tablist"
         aria-label="账户分组"
       >

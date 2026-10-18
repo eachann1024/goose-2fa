@@ -14,6 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+import { UpdateNotifications } from "./UpdateNotifications";
+
 interface HeaderProps {
   hasAccounts: boolean;
   searchQuery: string;
@@ -145,6 +147,8 @@ export function Header({
           )}
         </>
       )}
+
+      <UpdateNotifications />
 
       <DropdownMenu>
         <DropdownMenuTrigger

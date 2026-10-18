@@ -141,8 +141,8 @@
     border-width: 0;
   }
 
-  /* 拖动后 dnd-kit 会把焦点还给手柄，用内嵌反馈避免突兀的外圈。 */
-  .drag-handle:focus-visible {
+  /* 拖动后焦点回到卡片，用内嵌反馈保持清晰。 */
+  .cell-enter > button:first-child:focus-visible {
     outline: none !important;
     background: var(--color-accent-subtle);
     color: var(--color-accent);
