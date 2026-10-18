@@ -1,9 +1,63 @@
+import { useEffect, useState, type MouseEvent } from "react";
 import { Bell, X } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
 import { useUpdateNotices } from "@/hooks/useUpdateNotices";
+import { dismissNotesPromo, isNotesPromoDismissed } from "@/lib/update-notice-storage";
+
+const NOTES_SITE = "https://note.cooool.top/";
+
+function openNotesSite(event: MouseEvent<HTMLAnchorElement>) {
+  const openExternal = (window as Window & {
+    utools?: { shellOpenExternal?: (url: string) => void };
+  }).utools?.shellOpenExternal;
+  if (typeof openExternal !== "function") return;
+  event.preventDefault();
+  openExternal(NOTES_SITE);
+}
+
+function NotesPromo({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <article className="border-b py-4">
+      <div className="flex items-start gap-2">
+        <p className="min-w-0 flex-1 text-[13px] leading-relaxed">
+          您享福啦, 「鹅的笔记」完全体今天诞生了, 感兴趣请移步最新的炫酷官网{" "}
+          <a
+            href={NOTES_SITE}
+            target="_blank"
+            rel="noreferrer"
+            onClick={openNotesSite}
+            className="mx-0.5 inline-flex items-center rounded-full bg-[#2563eb] px-2 py-0.5 align-middle text-[12px] font-medium leading-none text-white transition-colors hover:bg-[#1d4ed8] active:bg-[#1e40af] dark:bg-[#3b82f6] dark:hover:bg-[#60a5fa] dark:active:bg-[#2563eb]"
+          >
+            点此跳转不炫酷 V 我 50
+          </a>
+        </p>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="icon-control -mr-1 shrink-0 rounded-md p-1 text-fg-muted"
+          aria-label="关闭鹅的笔记介绍"
+        >
+          <X size={14} />
+        </button>
+      </div>
+    </article>
+  );
+}
 
 export function UpdateNotifications() {
   const { open, onOpenChange, unread, notices, status, retry, currentVersion } = useUpdateNotices();
+  const [promoVisible, setPromoVisible] = useState(() => !isNotesPromoDismissed());
+
+  useEffect(() => {
+    const sync = () => setPromoVisible(!isNotesPromoDismissed());
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
+  }, []);
+
+  const dismissPromo = () => {
+    dismissNotesPromo();
+    setPromoVisible(false);
+  };
 
   return (
     <Popover.Root open={open} onOpenChange={onOpenChange}>
@@ -26,6 +80,7 @@ export function UpdateNotifications() {
               </Popover.Close>
             </div>
             <div className="max-h-[min(360px,60vh)] overflow-y-auto px-4">
+              {promoVisible && <NotesPromo onDismiss={dismissPromo} />}
               {notices.length === 0 ? (
                 <div className="py-4 text-[13px] text-fg-muted">
                   <p role="status">
