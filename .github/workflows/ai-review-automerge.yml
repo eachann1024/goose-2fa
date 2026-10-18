@@ -47,8 +47,6 @@ jobs:
       contents: read
       issues: write
       pull-requests: write
-    outputs:
-      review: ${{ steps.pragent.outputs.review }}
     steps:
       - name: Checkout review script from default branch
         uses: actions/checkout@v4
@@ -64,13 +62,14 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          json=$(bash .github/codex-review/run.sh)
-          delim=REVIEW_JSON_EOF
-          {
-            echo "review<<$delim"
-            printf '%s\n' "$json"
-            echo "$delim"
-          } >> "$GITHUB_OUTPUT"
+          bash .github/codex-review/run.sh > "$RUNNER_TEMP/gate-review.json"
+      # 审核结果走产物传递：job output 会被多行 Secret 的按行掩码误判为含密钥而整段丢弃。
+      - name: Upload review result
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-review
+          path: ${{ runner.temp }}/gate-review.json
+          if-no-files-found: error
 
 
   validate:
@@ -151,7 +150,15 @@ jobs:
       issues: write
       checks: read
       statuses: read
+      actions: read
     steps:
+      - name: Download review result
+        if: needs.review.result == 'success'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: gate-review
+          path: ${{ runner.temp }}/gate-review
       - name: Decide and merge
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -159,8 +166,9 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REVIEW_RESULT: ${{ needs.review.result }}
-          REVIEW_JSON: ${{ needs.review.outputs.review }}
         run: |
+          REVIEW_JSON="$(cat "$RUNNER_TEMP/gate-review/gate-review.json" 2>/dev/null || true)"
+          export REVIEW_JSON
           python3 - <<'PY'
           import json, os, re, subprocess, sys, time
 

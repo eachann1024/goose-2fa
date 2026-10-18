@@ -67,6 +67,30 @@ def output(name, value):
             file.write(f'{name}={value}\n')
 
 
+def skip_note(line):
+    print(line)
+    path = os.environ.get('GITHUB_STEP_SUMMARY')
+    if path:
+        with open(path, 'a') as file:
+            file.write(f'{line}\n')
+
+
+def release_pages():
+    return json.loads(gh('api', '--paginate', '--slurp', f'repos/{REPO}/releases?per_page=100'))
+
+
+def published_version_release(version):
+    exact, prefix = f'v{version}', f'v{version}-'
+    for page in release_pages():
+        for release in page:
+            tag = release.get('tag_name') or ''
+            if release.get('draft') or release.get('prerelease'):
+                continue
+            if tag == exact or tag.startswith(prefix):
+                return release
+    return None
+
+
 def current_plan():
     plan = json.loads((STATE / 'plan.json').read_text())
     if git('rev-parse', 'HEAD').strip() != plan['commit'] or fingerprint('HEAD') != plan['fingerprint']:
@@ -92,6 +116,7 @@ def prepare(force, offline):
     tag = f'v{version}-{commit[:7]}' if version else f'stable-{date}-{commit[:7]}'
     digest = fingerprint('HEAD')
     unchanged = False
+    published = None
     if not offline:
         latest = api('releases/latest')
         if latest:
@@ -109,11 +134,20 @@ def prepare(force, offline):
             if existing['prerelease']:
                 raise ValueError('Existing published tag is a prerelease; do not overwrite it')
             unchanged = True
+        if version:
+            published = published_version_release(version)
+            if published:
+                unchanged = True
     STATE.mkdir(exist_ok=True)
     plan = {'schema': 1, 'commit': commit, 'fingerprint': digest, 'tag': tag,
             'branch': branch, 'version': version, 'title': f"{CONFIG['name']} {version or date}"}
     (STATE / 'plan.json').write_text(json.dumps(plan, indent=2) + '\n')
-    output('build', str(force or not unchanged).lower())
+    building = force or not unchanged
+    if published and not building:
+        skip_note(f'版本 {version} 已发布为 {published["tag_name"]}，跳过编译')
+    decided = str(building).lower()
+    output('build', decided)
+    output('should_build', decided)
     output('tag', tag)
     output('commit', commit)
 
@@ -179,8 +213,7 @@ def package():
 
 
 def find_release(tag):
-    pages = json.loads(gh('api', '--paginate', '--slurp', f'repos/{REPO}/releases?per_page=100'))
-    return next((r for page in pages for r in page if r['tag_name'] == tag), None)
+    return next((r for page in release_pages() for r in page if r['tag_name'] == tag), None)
 
 
 def verify_tag(tag, commit):
@@ -203,6 +236,9 @@ def publish():
     remote = api(f'commits/{CONFIG["branch"]}')
     if not remote or remote['sha'] != plan['commit']:
         print('Default branch advanced during build; leave the previous stable release intact.')
+        return
+    if plan.get('version') and published_version_release(plan['version']):
+        print('同版本已发布，保持不变')
         return
     tag = plan['tag']
     verify_tag(tag, plan['commit'])
