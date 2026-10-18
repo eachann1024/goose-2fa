@@ -1,7 +1,8 @@
+import { parseSecretInput } from "../secret-input";
 import { parseOtpAuthUri } from "../otp";
 import { parseGoogleAuthMigration } from "../google-auth-migration";
 import type { NewAccountInput, VaultGroup } from "../types";
-import { isBase32Secret, normalizeGroups, normalizeAccounts } from "./normalization";
+import { normalizeGroups, normalizeAccounts } from "./normalization";
 import { parseJsonAccounts } from "./json-import";
 
 // ---- Main import parser ----
@@ -50,13 +51,16 @@ export function parseImportDataUnchecked(text: string): NewAccountInput[] | null
   }
   if (fromUris.length > 0) return fromUris;
 
-  // 5. Single base32 secret (one per line)
-  const base32Lines = lines.filter((l) => isBase32Secret(l));
+  // 5. Plain or explicitly labelled secrets (one account per line).
+  const base32Lines = lines.flatMap((line) => {
+    const parsed = parseSecretInput(line);
+    return parsed ? [parsed] : [];
+  });
   if (base32Lines.length > 0) {
     return base32Lines.map((s, i) => ({
       name: `Account ${i + 1}`,
       issuer: "",
-      secret: s.replace(/[\s-]/g, "").toUpperCase(),
+      secret: s.secret,
       type: "totp" as const,
       digits: 6,
       period: 30,
