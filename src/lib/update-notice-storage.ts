@@ -2,6 +2,7 @@ import { compareVersions, isStableVersion } from "./update-notices";
 
 const CURSOR_KEY = "goose-2fa-notices-cursor-v1";
 const LEGACY_READ_KEY = "goose-2fa-notices-read";
+const NOTES_PROMO_KEY = "goose-2fa-notes-promo-dismissed";
 
 export interface NoticeCursor {
   installedVersion: string;
@@ -51,6 +52,14 @@ export function loadNoticeCursor(currentVersion: string): NoticeCursor {
 
 export function saveNoticeCursor(cursor: NoticeCursor): void {
   writeNoticeStorage(CURSOR_KEY, JSON.stringify(cursor));
+}
+
+export function isNotesPromoDismissed(): boolean {
+  return readNoticeStorage(NOTES_PROMO_KEY) === "1";
+}
+
+export function dismissNotesPromo(): void {
+  writeNoticeStorage(NOTES_PROMO_KEY, "1");
 }
 
 export function acknowledgeNotices(cursor: NoticeCursor, through: string, from: string): NoticeCursor {
