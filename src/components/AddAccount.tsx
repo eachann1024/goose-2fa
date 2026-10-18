@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback } from "react";
 import {
   ArrowLeft,
   ClipboardPaste,
@@ -6,13 +6,10 @@ import {
   Clock,
   Hash,
 } from "lucide-react";
-import { parseOtpAuthUri } from "@/lib/otp";
-import { parseGoogleAuthMigrationPayload } from "@/lib/google-auth-migration";
-import { isBase32Secret } from "@/lib/data-transfer";
+import { parseSecretInput } from "@/lib/secret-input";
+import { useAccountImport } from "./useAccountImport";
 import { Input } from "@/components/ui/input";
-import { usePlatform } from "@/platform/context";
-import { readQRFromClipboard, decodeQRFromBase64 } from "@/lib/qr-decode";
-import type { NewAccountInput } from "@/lib/types";
+import type { NewAccountInput, ParsedOtpAuth } from "@/lib/types";
 
 interface AddAccountProps {
   onAdd: (input: NewAccountInput) => void;
@@ -26,183 +23,55 @@ type OtpType = "totp" | "hotp";
 type FormError = { field: "name" | "secret"; message: string } | null;
 
 export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAccountProps) {
-  const platform = usePlatform();
   const [name, setName] = useState("");
   const [secret, setSecret] = useState("");
   const [type, setType] = useState<OtpType>("totp");
-  const [importError, setImportError] = useState("");
   const [error, setError] = useState<FormError>(null);
-  const mountedRef = useRef(true);
-  // 自增标识：每次点击导入/截屏都 +1，旧回调若标识过期则丢弃
-  const captureGenRef = useRef(0);
-  const clipboardGenRef = useRef(0);
-
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-    };
+  const [importedAccount, setImportedAccount] = useState<ParsedOtpAuth | null>(null);
+  const handleSecretInput = useCallback((text: string) => {
+    const parsed = parseSecretInput(text);
+    setSecret(parsed?.secret ?? text);
+    setImportedAccount(parsed?.account ?? null);
+    if (parsed?.account) {
+      const accountName = parsed.account.name || parsed.account.issuer;
+      setName((current) => current.trim() ? current : accountName);
+    }
+    setError(null);
   }, []);
+  const { importError, handleClipboardImport, handleScreenCapture } = useAccountImport({
+    onAdd, onBatchAdd, initialAction, onSecretInput: handleSecretInput,
+  });
 
   const handleSubmit = useCallback(() => {
-    const trimmedName = name.trim();
-    const trimmedSecret = secret.replace(/\s/g, "").toUpperCase();
+    const parsed = parseSecretInput(secret);
+    const account = parsed?.account ?? importedAccount;
+    const trimmedName = name.trim() || account?.name || account?.issuer || "";
 
     if (!trimmedName) {
       setError({ field: "name", message: "请输入账户名称" });
       return;
     }
-    if (!trimmedSecret) {
+    if (!secret.trim()) {
       setError({ field: "secret", message: "请输入密钥" });
       return;
     }
-    if (!/^[A-Z2-7]+=*$/.test(trimmedSecret)) {
+    if (!parsed) {
       setError({ field: "secret", message: "密钥格式不正确 (需要 Base32 编码)" });
       return;
     }
 
     onAdd({
-      name: trimmedName,
       issuer: "",
-      secret: trimmedSecret,
       type,
       digits: 6,
       period: 30,
       counter: 0,
       algorithm: "SHA-1",
+      ...account,
+      name: trimmedName,
+      secret: parsed.secret,
     });
-  }, [name, secret, type, onAdd]);
-
-  /** Try to parse any decoded content (text or QR result) into accounts. */
-  const processDecodedContent = useCallback(
-    (content: string): boolean => {
-      const trimmed = content.trim();
-
-      // 1. otpauth:// single URI
-      if (trimmed.startsWith("otpauth://")) {
-        const parsed = parseOtpAuthUri(trimmed);
-        if (parsed) {
-          onAdd({ ...parsed });
-          return true;
-        }
-        setImportError("无法解析此 OTP 链接");
-        return true;
-      }
-
-      // 2. Google Authenticator migration
-      if (trimmed.startsWith("otpauth-migration://")) {
-        const migration = parseGoogleAuthMigrationPayload(trimmed);
-        if (migration?.batchSize && migration.batchSize > 1) {
-          setImportError(`这是第 ${migration.batchIndex + 1}/${migration.batchSize} 张迁移二维码。为避免漏账户，请在 Google Authenticator 中减少本次导出账户数量后重试。`);
-          return true;
-        }
-        const entries = migration?.accounts;
-        if (entries && entries.length > 0) {
-          if (entries.length === 1) {
-            onAdd(entries[0]!);
-          } else if (onBatchAdd) {
-            onBatchAdd(entries);
-          } else {
-            // fallback: add all one by one
-            entries.forEach((e) => onAdd(e));
-          }
-          return true;
-        }
-        setImportError("无法解析 Google Authenticator 迁移数据");
-        return true;
-      }
-
-      // 3. Plain base32 secret
-      if (isBase32Secret(trimmed)) {
-        setSecret(trimmed.replace(/[\s-]/g, "").toUpperCase());
-        setImportError("");
-        return true; // 已填入密钥，等待用户补充名称后保存。
-      }
-
-      return false;
-    },
-    [onAdd, onBatchAdd],
-  );
-
-  const handleClipboardImport = useCallback(async () => {
-    const myGen = ++clipboardGenRef.current;
-    setImportError("");
-
-    const isStale = () => myGen !== clipboardGenRef.current || !mountedRef.current;
-
-    try {
-      // Read clipboard text
-      const clipText = await platform.readClipboardText();
-
-      // Try text content first
-      if (clipText) {
-        const trimmed = clipText.trim();
-        if (
-          trimmed.startsWith("otpauth://") ||
-          trimmed.startsWith("otpauth-migration://") ||
-          isBase32Secret(trimmed)
-        ) {
-          if (isStale()) return;
-          processDecodedContent(trimmed);
-          return;
-        }
-      }
-
-      // Try QR code image from clipboard
-      const qrResult = await readQRFromClipboard(platform);
-      if (isStale()) return;
-      if (qrResult) {
-        if (processDecodedContent(qrResult)) return;
-        setImportError("二维码内容不是有效的 OTP 数据");
-        return;
-      }
-
-      setImportError("剪贴板中未找到有效内容 (支持 otpauth 链接、迁移码、二维码图片或 Base32 密钥)");
-    } catch {
-      if (!isStale()) setImportError("读取剪贴板失败");
-    }
-  }, [processDecodedContent, platform]);
-
-  const handleScreenCapture = useCallback(async () => {
-    const myGen = ++captureGenRef.current;
-    setImportError("");
-
-    const isStale = () => myGen !== captureGenRef.current || !mountedRef.current;
-
-    try {
-      const base64 = await platform.captureScreen();
-      if (isStale()) return;
-      if (!base64) {
-        setImportError("截屏已取消");
-        return;
-      }
-      try {
-        const qrResult = await decodeQRFromBase64(base64);
-        if (isStale()) return;
-        if (qrResult) {
-          if (!processDecodedContent(qrResult)) {
-            setImportError("截图中的二维码不是有效的 OTP 数据");
-          }
-        } else {
-          setImportError("未在截图中检测到二维码");
-        }
-      } catch {
-        if (!isStale()) setImportError("解析截图失败");
-      }
-    } catch {
-      if (!isStale()) setImportError("截屏失败或被取消");
-    }
-  }, [processDecodedContent, platform]);
-
-  // Auto-trigger initial action on mount
-  const initialActionRef = useRef(initialAction);
-  useEffect(() => {
-    if (initialActionRef.current === "clipboard") {
-      handleClipboardImport();
-    } else if (initialActionRef.current === "capture") {
-      handleScreenCapture();
-    }
-    initialActionRef.current = undefined;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [name, secret, type, importedAccount, onAdd]);
 
   return (
     <div className="slide-in flex flex-col">
@@ -308,7 +177,19 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
               value={secret}
               onChange={(e) => {
                 setSecret(e.target.value);
+                setImportedAccount(null);
                 setError(null);
+              }}
+              onPaste={(e) => {
+                const text = e.clipboardData.getData("text");
+                if (parseSecretInput(text)) {
+                  e.preventDefault();
+                  handleSecretInput(text);
+                }
+              }}
+              onBlur={() => {
+                const parsed = parseSecretInput(secret);
+                if (parsed && parsed.secret !== secret) handleSecretInput(secret);
               }}
               placeholder="例如 JBSWY3DPEHPK3PXP"
               className="font-mono tracking-wider"
