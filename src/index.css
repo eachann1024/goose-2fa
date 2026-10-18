@@ -4,12 +4,7 @@
 
 @source "./App.tsx";
 @source "./components/*.tsx";
-@source "./components/ui/input.tsx";
-@source "./components/ui/button.tsx";
-@source "./components/ui/input-group.tsx";
-@source "./components/ui/dropdown-menu.tsx";
-@source "./components/ui/select.tsx";
-@source "./components/ui/tooltip.tsx";
+@source "./components/ui";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -132,13 +127,13 @@
     outline-offset: 2px;
   }
 
+  /* 焦点和悬停只变边框颜色，始终预留相同的 1px 空间。 */
   input, textarea, select {
-    border-width: 1px;
+    border: 1px solid transparent;
   }
 
-  /* 分组编辑器是一个复合控件，焦点由外层胶囊统一承载。 */
-  .group-name-input {
-    border-width: 0;
+  :is(input, textarea, select):focus {
+    border-color: var(--color-accent);
   }
 
   /* 拖动后焦点回到卡片，用内嵌反馈保持清晰。 */

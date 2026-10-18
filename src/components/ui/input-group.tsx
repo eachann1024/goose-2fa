@@ -14,7 +14,7 @@ function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
  data-slot="input-group"
  role="group"
  className={cn(
-"group/input-group relative flex w-full min-w-0 items-center rounded-cell border bg-input transition-colors outline-none hover:border-border-strong focus-within:border-accent focus-within:outline focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-accent has-disabled:bg-surface-hover has-disabled:text-fg-faint has-disabled:opacity-100 has-[[data-slot][aria-invalid=true]]:border-destructive has-[>[data-align=block-end]]:h-auto has-[>[data-align=block-end]]:flex-col has-[>[data-align=block-start]]:h-auto has-[>[data-align=block-start]]:flex-col has-[>textarea]:h-auto has-[>[data-align=block-end]]:[&>input]:pt-3 has-[>[data-align=block-start]]:[&>input]:pb-3 has-[>[data-align=inline-end]]:[&>input]:pr-1.5 has-[>[data-align=inline-start]]:[&>input]:pl-1.5",
+"group/input-group relative flex w-full min-w-0 items-center rounded-cell border border-transparent bg-input transition-colors outline-none hover:border-border-strong focus-within:border-accent has-disabled:bg-surface-hover has-disabled:text-fg-faint has-disabled:opacity-100 has-[[data-slot][aria-invalid=true]]:border-destructive has-[>[data-align=block-end]]:h-auto has-[>[data-align=block-end]]:flex-col has-[>[data-align=block-start]]:h-auto has-[>[data-align=block-start]]:flex-col has-[>textarea]:h-auto has-[>[data-align=block-end]]:[&>input]:pt-3 has-[>[data-align=block-start]]:[&>input]:pb-3 has-[>[data-align=inline-end]]:[&>input]:pr-1.5 has-[>[data-align=inline-start]]:[&>input]:pl-1.5",
  className
  )}
  {...props}
@@ -122,9 +122,10 @@ function InputGroupInput({
 }: React.ComponentProps<"input">) {
  return (
  <Input
+ variant="embedded"
  data-slot="input-group-control"
  className={cn(
-"flex-1 rounded-none border-0 bg-transparent py-0 shadow-none ring-0 hover:border-transparent focus:border-transparent focus-visible:outline-none disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:disabled:bg-transparent",
+"flex-1 px-3.5 py-0",
  className
  )}
  {...props}
@@ -138,9 +139,10 @@ function InputGroupTextarea({
 }: React.ComponentProps<"textarea">) {
  return (
  <Textarea
+ variant="embedded"
  data-slot="input-group-control"
  className={cn(
-"flex-1 resize-none rounded-none border-0 bg-transparent py-2 shadow-none ring-0 disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:disabled:bg-transparent",
+"flex-1 resize-none px-2.5 py-2",
  className
  )}
  {...props}
