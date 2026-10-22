@@ -28,7 +28,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Check frontend types
-        run: bunx tsc -b
+        run: node scripts/typecheck.mjs -b
 
       - name: Build uTools plugin
         run: bun run build
