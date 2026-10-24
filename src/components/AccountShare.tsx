@@ -94,7 +94,7 @@ export function AccountShare({ account, open, onClose, onCopy }: AccountSharePro
         <button
           type="button"
           onClick={() => void copyValue()}
-          className="mt-3 flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border text-[12px] text-fg-muted transition-colors hover:bg-surface-hover active:bg-surface-active"
+          className="mt-3 flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border text-[12px] text-fg-muted transition-colors hover:border-accent hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle"
         >
           {copied ? <Check size={13} /> : <Copy size={13} />}
           {copied ? "已复制" : open === "qr" ? "复制链接" : "复制密钥"}

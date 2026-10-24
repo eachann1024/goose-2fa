@@ -143,7 +143,7 @@ export function GroupSegments({
                     {/* 菜单仅在悬停/聚焦时露出，不常驻占位 */}
                     <DropdownMenu>
                       <DropdownMenuTrigger
-                        className="absolute right-1 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center rounded text-fg-faint opacity-0 transition-[color,background-color,opacity] hover:bg-bg hover:text-fg focus-visible:opacity-100 group-hover/seg:opacity-100 group-focus-within/seg:opacity-100 data-[popup-open]:bg-bg data-[popup-open]:opacity-100"
+                        className="absolute right-1 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center rounded text-fg-faint opacity-0 transition-[color,background-color,opacity] hover:bg-accent-subtle hover:text-accent focus-visible:opacity-100 group-hover/seg:opacity-100 group-focus-within/seg:opacity-100 data-[popup-open]:bg-accent-subtle data-[popup-open]:text-accent data-[popup-open]:opacity-100"
                         aria-label={`${g.name} 分组菜单`}
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -207,7 +207,7 @@ export function GroupSegments({
           <button
             type="button"
             onClick={() => { setGroupError(""); setCreating(true); }}
-            className="flex h-7 shrink-0 items-center gap-1 rounded-full border border-dashed border-border px-2.5 text-[11px] text-fg-muted transition-colors hover:border-border-strong hover:bg-surface-hover hover:text-fg active:bg-surface-active"
+            className="flex h-7 shrink-0 items-center gap-1 rounded-full border border-dashed border-border px-2.5 text-[11px] text-fg-muted transition-colors hover:border-accent hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle"
             aria-label="新建分组"
           >
             <Plus size={12} />
@@ -223,7 +223,7 @@ export function GroupSegments({
           <p className="min-w-0 flex-1 break-words text-[11px] leading-relaxed text-fg-muted">
             删除“{deleteCandidate.name}”？{deleteCandidate.count > 0 ? `${deleteCandidate.count} 个账户会移到${DEFAULT_GROUP_NAME}。` : "此分组没有账户。"}
           </p>
-          <button type="button" onClick={() => setDeleteCandidate(null)} className="min-h-8 rounded-lg px-2 text-[11px] text-fg-muted transition-colors hover:bg-surface active:bg-surface-active">取消</button>
+          <button type="button" onClick={() => setDeleteCandidate(null)} className="min-h-8 rounded-lg px-2 text-[11px] text-fg-muted transition-colors hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle">取消</button>
           <button type="button" onClick={() => { onDelete(deleteCandidate.id); setDeleteCandidate(null); }} className="min-h-8 rounded-lg bg-timer-low px-2.5 text-[11px] font-medium text-danger-fg transition-[filter,transform] hover:brightness-95 active:translate-y-px active:brightness-90">删除</button>
         </div>
       )}

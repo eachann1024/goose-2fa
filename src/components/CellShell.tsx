@@ -37,7 +37,7 @@ export function CellShell({
   const base = copied
     ? "copied-flash border-copied-border"
     : interactive
-      ? "bg-surface hover:bg-surface-hover hover:border-border-strong active:bg-surface-active"
+      ? "bg-surface hover:border-accent hover:bg-accent-subtle active:bg-accent-subtle"
       : "bg-surface";
 
   return (

@@ -6,7 +6,7 @@ export const formControlVariants = cva(
   {
     variants: {
       variant: {
-        default: "rounded-cell bg-input px-3.5 py-2.5 hover:border-border-strong hover:shadow-sm focus:border-accent focus:shadow-sm disabled:border-border-soft disabled:bg-surface-hover aria-invalid:border-destructive",
+        default: "rounded-cell bg-input px-3.5 py-2.5 hover:border-accent hover:shadow-sm focus:border-accent focus:shadow-sm disabled:border-border-soft disabled:bg-surface-hover aria-invalid:border-destructive",
         embedded: "rounded-none bg-transparent p-0 shadow-none hover:border-transparent hover:shadow-none focus:border-transparent focus:shadow-none disabled:bg-transparent",
       },
     },

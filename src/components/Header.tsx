@@ -99,7 +99,7 @@ function MenuSegmented<T extends string>({
             key={option.value}
             value={option.value}
             closeOnClick={false}
-            className="flex h-7 min-w-0 flex-1 cursor-default items-center justify-center gap-1 whitespace-nowrap rounded-md px-1 text-[12px] leading-none text-fg-faint outline-hidden select-none transition-colors data-highlighted:bg-surface-hover data-highlighted:text-fg aria-checked:bg-accent-subtle aria-checked:font-medium aria-checked:text-accent"
+            className="flex h-7 min-w-0 flex-1 cursor-default items-center justify-center gap-1 whitespace-nowrap rounded-md px-1 text-[12px] leading-none text-fg-faint outline-hidden select-none transition-colors data-highlighted:bg-accent-subtle data-highlighted:text-accent aria-checked:bg-accent-subtle aria-checked:font-medium aria-checked:text-accent"
           >
             {option.icon}
             {option.label}
@@ -184,7 +184,7 @@ export function Header({
               size="icon-xs"
               variant="ghost"
               aria-label="清除并关闭搜索"
-              className="text-fg-faint shadow-none hover:bg-transparent hover:text-fg-muted"
+              className="text-fg-faint shadow-none hover:bg-transparent hover:text-accent"
             >
               <X size={13} />
             </InputGroupButton>

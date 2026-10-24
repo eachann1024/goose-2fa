@@ -23,7 +23,7 @@ interface AccountContextMenuProps {
   children: ReactNode;
 }
 
-const ITEM = "gap-2.5 px-2 py-2 text-[13px] data-highlighted:bg-surface-hover data-highlighted:text-fg";
+const ITEM = "gap-2.5 px-2 py-2 text-[13px] data-highlighted:bg-accent-subtle data-highlighted:text-accent";
 
 export function AccountContextMenu({
   account, disabled, onCopy, onDetail, children,
