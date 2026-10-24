@@ -27,11 +27,11 @@ function viewBounds(el: HTMLElement) {
 }
 
 /** 底边停在详情可视区域内侧，高度也不超过这块区域。 */
-function maxBoxHeight(el: HTMLElement, top = el.getBoundingClientRect().top) {
+function maxBoxHeight(el: HTMLElement, min = MIN_HEIGHT, top = el.getBoundingClientRect().top) {
   const view = viewBounds(el);
   const room = Math.floor(view.bottom - EDGE - top);
   const screenCap = Math.floor(view.height - EDGE);
-  return Math.max(MIN_HEIGHT, Math.min(room, screenCap));
+  return Math.max(min, Math.min(room, screenCap));
 }
 
 export function EditableText(props: EditableTextProps) {
@@ -83,30 +83,35 @@ function SingleLineText({ value, label, placeholder, onSave, variant = "default"
       <Pencil
         size={heading ? 13 : 11}
         aria-hidden="true"
-        className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-fg-faint transition-colors group-hover:text-fg-muted group-focus-within:opacity-0"
+        className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-fg-faint transition-colors group-hover:text-accent group-focus-within:opacity-0"
       />
     </div>
   );
 }
 
-function MultilineText({ value, label, placeholder, onSave }: EditableTextProps) {
+function MultilineText({ value, label, placeholder, onSave, variant = "default", selectOnFocus = false }: EditableTextProps) {
+  const heading = variant === "heading";
+  const minHeight = heading ? 44 : MIN_HEIGHT;
   const areaRef = useRef<HTMLTextAreaElement>(null);
-  const contentHeight = useRef(MIN_HEIGHT);
+  const contentHeight = useRef(minHeight);
   const explicit = useRef<number | null>(null);
   const cancelled = useRef(false);
   const dragging = useRef(false);
+  const [gripActive, setGripActive] = useState(false);
+  const [fieldHot, setFieldHot] = useState(false);
+  const [gripHot, setGripHot] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
-  const [height, setHeight] = useState(MIN_HEIGHT);
-  const [ceiling, setCeiling] = useState(MIN_HEIGHT);
+  const [height, setHeight] = useState(minHeight);
+  const [ceiling, setCeiling] = useState(minHeight);
   const shown = editing ? draft : value;
 
   const publish = (top?: number) => {
     const el = areaRef.current;
     if (!el) return;
-    const max = maxBoxHeight(el, top);
+    const max = maxBoxHeight(el, minHeight, top);
     const base = explicit.current ?? contentHeight.current;
-    const next = Math.min(max, Math.max(MIN_HEIGHT, base));
+    const next = Math.min(max, Math.max(minHeight, base));
     if (explicit.current != null) explicit.current = next;
     el.style.height = `${next}px`;
     setHeight(next);
@@ -145,12 +150,13 @@ function MultilineText({ value, label, placeholder, onSave }: EditableTextProps)
     const scroller = el.closest(".view-detail");
     const startScroll = scroller instanceof HTMLElement ? scroller.scrollTop : 0;
     dragging.current = true;
+    setGripActive(true);
     event.currentTarget.setPointerCapture(event.pointerId);
 
     const move = (ev: PointerEvent) => {
       if (scroller instanceof HTMLElement) scroller.scrollTop = startScroll;
-      const max = maxBoxHeight(el, startTop);
-      const next = Math.round(Math.min(max, Math.max(MIN_HEIGHT, startH + ev.clientY - startY)));
+      const max = maxBoxHeight(el, minHeight, startTop);
+      const next = Math.round(Math.min(max, Math.max(minHeight, startH + ev.clientY - startY)));
       explicit.current = next;
       el.style.height = `${next}px`;
       setHeight(next);
@@ -158,6 +164,7 @@ function MultilineText({ value, label, placeholder, onSave }: EditableTextProps)
     };
     const end = () => {
       dragging.current = false;
+      setGripActive(false);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", end);
       window.removeEventListener("pointercancel", end);
@@ -170,14 +177,18 @@ function MultilineText({ value, label, placeholder, onSave }: EditableTextProps)
   const stepHeight = (delta: number) => {
     const el = areaRef.current;
     if (!el) return;
-    const max = maxBoxHeight(el);
-    const next = Math.round(Math.min(max, Math.max(MIN_HEIGHT, height + delta)));
+    const max = maxBoxHeight(el, minHeight);
+    const next = Math.round(Math.min(max, Math.max(minHeight, height + delta)));
     explicit.current = next;
     publish();
   };
 
   return (
-    <div className="group relative min-w-0 [overflow-anchor:none]">
+    <div
+      className="group relative min-w-0 [overflow-anchor:none]"
+      onPointerEnter={() => setFieldHot(true)}
+      onPointerLeave={() => setFieldHot(false)}
+    >
       <Textarea
         ref={areaRef}
         aria-label={label}
@@ -186,11 +197,15 @@ function MultilineText({ value, label, placeholder, onSave }: EditableTextProps)
         placeholder={placeholder}
         autoComplete="off"
         style={{ height }}
-        className="field-sizing-fixed min-h-10 resize-none overflow-x-hidden overflow-y-auto break-all px-3.5 py-1.5 pr-9 pb-3 text-[12.5px] leading-5 text-fg-muted"
-        onFocus={() => {
+        className={cn(
+          "field-sizing-fixed resize-none overflow-x-hidden overflow-y-auto break-all px-3.5 py-1.5 pr-9 pb-3",
+          heading ? "min-h-11 text-[18px] font-semibold leading-6 text-fg" : "min-h-10 text-[12.5px] leading-5 text-fg-muted",
+        )}
+        onFocus={(event) => {
           cancelled.current = false;
           setDraft(value);
           setEditing(true);
+          if (selectOnFocus) event.currentTarget.select();
         }}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={() => {
@@ -210,17 +225,22 @@ function MultilineText({ value, label, placeholder, onSave }: EditableTextProps)
       <Pencil
         size={11}
         aria-hidden="true"
-        className="pointer-events-none absolute top-2.5 right-3.5 text-fg-faint transition-colors group-hover:text-fg-muted group-focus-within:opacity-0"
+        className="pointer-events-none absolute top-2.5 right-3.5 text-fg-faint transition-colors group-hover:text-accent group-focus-within:opacity-0"
       />
       <button
         type="button"
         role="slider"
         aria-orientation="vertical"
-        aria-label="调整备注高度"
-        aria-valuemin={MIN_HEIGHT}
+        aria-label={`调整${label}高度`}
+        aria-valuemin={minHeight}
         aria-valuemax={ceiling}
         aria-valuenow={height}
-        className="absolute inset-x-3 bottom-0 flex h-3 cursor-ns-resize items-center justify-center touch-none"
+        data-dragging={gripActive ? "true" : undefined}
+        className="grip-hit absolute inset-x-3 bottom-0 z-10 flex h-3 cursor-ns-resize items-center justify-center touch-none"
+        onPointerEnter={() => setGripHot(true)}
+        onPointerLeave={() => setGripHot(false)}
+        onFocus={() => setGripHot(true)}
+        onBlur={() => setGripHot(false)}
         onPointerDown={onGripDown}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown") {
@@ -232,7 +252,10 @@ function MultilineText({ value, label, placeholder, onSave }: EditableTextProps)
           }
         }}
       >
-        <span className="h-1 w-8 rounded-full bg-border group-hover:bg-fg-faint" />
+        <span
+          className="pointer-events-none block h-1 w-8 rounded-full transition-colors"
+          style={{ backgroundColor: gripActive || gripHot ? "var(--color-accent)" : fieldHot ? "var(--color-accent-border)" : "var(--color-border)" }}
+        />
       </button>
     </div>
   );
