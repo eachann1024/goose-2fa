@@ -1,4 +1,4 @@
-import { Clock, FolderOpen, Globe, MapPin, Monitor, Tag } from "lucide-react";
+import { Clock, FolderOpen, Globe, MapPin, Monitor } from "lucide-react";
 import type { AccountData, VaultGroup } from "@/lib/types";
 import {
   Select,
@@ -11,8 +11,6 @@ import {
 interface AccountMetadataProps {
   account: AccountData;
   groups: VaultGroup[];
-  originalName: string;
-  displayName: string;
   onUpdateGroup: (id: string, groupId: string | null) => void;
 }
 
@@ -31,18 +29,10 @@ function formatLocation(lat: number, lng: number): string {
   return `${Math.abs(lat).toFixed(4)}° ${latDir}, ${Math.abs(lng).toFixed(4)}° ${lngDir}`;
 }
 
-export function AccountMetadata({ account, groups, originalName, displayName, onUpdateGroup }: AccountMetadataProps) {
+export function AccountMetadata({ account, groups, onUpdateGroup }: AccountMetadataProps) {
   const meta = account.meta;
 
   const metaItems: { icon: React.ReactNode; label: string; value: string }[] = [];
-
-  if (originalName !== displayName) {
-    metaItems.push({
-      icon: <Tag size={13} />,
-      label: "原始名称",
-      value: originalName,
-    });
-  }
 
   const createdAt = formatCreatedAt(account.createdAt);
 
