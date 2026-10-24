@@ -98,10 +98,10 @@ export function CellBody({
         {!overlay && (
           <button
             onClick={onDetailClick}
-            className="shrink-0 rounded-md p-1 text-fg-faint opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 active:bg-surface-active"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-fg-muted opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 active:bg-surface-active"
             aria-label="详情"
           >
-            <Info size={14} />
+            <Info size={20} />
           </button>
         )}
       </>
@@ -115,15 +115,15 @@ export function CellBody({
         {!overlay && (
           <button
             onClick={onDetailClick}
-            className="absolute right-2 top-2 rounded-md p-0.5 text-fg-faint opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 active:bg-surface-active"
+            className="absolute right-1.5 top-1.5 flex size-7 items-center justify-center rounded-lg text-fg-muted opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 active:bg-surface-active"
             aria-label="详情"
           >
-            <Info size={11} />
+            <Info size={18} />
           </button>
         )}
 
         <span
-          className="mb-1 max-w-[calc(100%-20px)] truncate text-[10px] leading-tight text-fg-muted"
+          className="mb-1 max-w-[calc(100%-32px)] truncate text-[10px] leading-tight text-fg-muted"
         >
           {displayName}
         </span>
@@ -185,15 +185,15 @@ export function CellBody({
       {!overlay && (
         <button
           onClick={onDetailClick}
-          className="absolute right-2.5 top-2.5 rounded-md p-1 text-fg-faint opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 active:bg-surface-active"
+          className="absolute right-1.5 top-1.5 flex size-8 items-center justify-center rounded-lg text-fg-muted opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 active:bg-surface-active"
           aria-label="详情"
         >
-          <Info size={13} />
+          <Info size={20} />
         </button>
       )}
 
       <span
-        className="mb-1.5 max-w-[calc(100%-24px)] truncate text-[12px] leading-tight text-fg-muted"
+        className="mb-1.5 max-w-[calc(100%-36px)] truncate text-[12px] leading-tight text-fg-muted"
       >
         {displayName}
       </span>
