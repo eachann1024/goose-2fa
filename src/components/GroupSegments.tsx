@@ -109,13 +109,6 @@ export function GroupSegments({
         role="tablist"
         aria-label="账户分组"
       >
-        <SegmentChip
-          label="全部"
-          count={totalCount}
-          active={selected === null}
-          onClick={() => { setGroupError(""); onSelect(null); }}
-        />
-
         <SortableContext
           items={userGroups.filter((g) => g.id !== renamingId).map((g) => groupDndId(g.id))}
           strategy={horizontalListSortingStrategy}

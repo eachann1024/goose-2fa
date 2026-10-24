@@ -65,23 +65,32 @@ export function buildGroupTallies(
   return tallies;
 }
 
+/** 有分组时不再保留「全部」：优先第一个有账户的分组，否则第一个分组。 */
+export function fallbackSelectedGroup(
+  groups: VaultGroup[],
+  accounts: AccountData[],
+): string | null {
+  if (groups.length === 0) return null;
+  const tallies = buildGroupTallies(groups, accounts);
+  return (tallies.find((group) => group.count > 0) ?? tallies[0])?.id ?? null;
+}
+
 /**
  * 解析一级选中态。
- * - null → 全部
- * - UNGROUPED_KEY 始终合法
- * - 真实 group id 必须仍存在；accounts 空时不误清
+ * - 没有自定义分组时为 null，列表显示全部账户
+ * - UNGROUPED_KEY 在已有分组时合法
+ * - 真实 group id 必须仍存在；分组尚未 hydrate 且账户为空时保留原值
  */
 export function resolveSelectedGroup(
   selected: string | null,
   groups: VaultGroup[],
   accounts: AccountData[],
 ): string | null {
-  if (selected === null) return null;
   if (selected === UNGROUPED_KEY) return groups.length > 0 ? UNGROUPED_KEY : null;
-  if (groups.some((g) => g.id === selected)) return selected;
-  // 分组列表尚未 hydrate 且 accounts 也空时保留，避免闪断
+  if (selected && groups.some((group) => group.id === selected)) return selected;
   if (groups.length === 0 && accounts.length === 0) return selected;
-  return null;
+  if (groups.length === 0) return null;
+  return fallbackSelectedGroup(groups, accounts);
 }
 
 export function nextGroupOrder(groups: VaultGroup[]): number {
