@@ -4,13 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - .github/workflows/update-notices.yml
-      - .github/scripts/publish_notice_feed.py
-  release:
-    types: [published, edited]
-  workflow_run:
-    workflows: [Daily stable uTools release]
-    types: [completed]
+      - CHANGELOG.md
   workflow_dispatch:
 
 permissions:
@@ -22,20 +16,18 @@ concurrency:
 
 jobs:
   refresh:
-    if: >-
-      github.event_name != 'workflow_run' ||
-      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
           persist-credentials: false
-      - name: Sync the latest published stable release
+      - name: Translate CHANGELOG and publish the notice feed
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: python3 .github/scripts/publish_notice_feed.py
       - name: Purge the published feed from CDN caches
         run: >-
