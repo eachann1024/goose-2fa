@@ -16,6 +16,8 @@ unset CODEX_AUTH_JSON
 cat > "$review_codex_home/config.toml" <<'CFG'
 approval_policy = "never"
 sandbox_mode = "read-only"
+model = "gpt-6.1-sol"
+model_reasoning_effort = "medium"
 CFG
 
 npm install -g @openai/codex@0.159.2 >&2
