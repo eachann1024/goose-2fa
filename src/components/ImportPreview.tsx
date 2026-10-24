@@ -63,7 +63,7 @@ export function ImportPreview({ accounts, duplicates, onCancel, onConfirm }: Imp
         <div className="flex gap-2 pb-4">
           <button
             onClick={onCancel}
-            className="flex-1 rounded-cell border py-2.5 text-[13px] font-medium text-fg-muted transition-colors hover:bg-surface-hover active:bg-surface-active"
+            className="flex-1 rounded-cell border py-2.5 text-[13px] font-medium text-fg-muted transition-colors hover:border-accent hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle"
           >
             取消
           </button>

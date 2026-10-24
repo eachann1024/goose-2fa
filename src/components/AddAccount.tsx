@@ -90,7 +90,7 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
           <button
             type="button"
             onClick={handleClipboardImport}
-            className="flex flex-1 items-center gap-2.5 rounded-cell border bg-surface px-3.5 py-3 text-left transition-colors hover:border-border-strong hover:bg-surface-hover active:bg-surface-active"
+            className="flex flex-1 items-center gap-2.5 rounded-cell border bg-surface px-3.5 py-3 text-left transition-colors hover:border-accent hover:bg-accent-subtle active:bg-accent-subtle"
           >
             <ClipboardPaste size={17} className="shrink-0 text-accent" />
             <div className="min-w-0">
@@ -105,7 +105,7 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
           <button
             type="button"
             onClick={handleScreenCapture}
-            className="flex flex-1 items-center gap-2.5 rounded-cell border bg-surface px-3.5 py-3 text-left transition-colors hover:border-border-strong hover:bg-surface-hover active:bg-surface-active"
+            className="flex flex-1 items-center gap-2.5 rounded-cell border bg-surface px-3.5 py-3 text-left transition-colors hover:border-accent hover:bg-accent-subtle active:bg-accent-subtle"
           >
             <ScanLine size={17} className="shrink-0 text-accent" />
             <div className="min-w-0">

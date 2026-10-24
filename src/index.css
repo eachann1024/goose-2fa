@@ -699,26 +699,8 @@
     transition: color 120ms ease, background-color 120ms ease, transform 80ms ease;
   }
 
-  .icon-control:hover {
-    background: var(--color-surface);
-    color: var(--color-fg);
-  }
-
-  .icon-control:active {
-    background: var(--color-surface-active);
-    transform: translateY(1px);
-  }
-
   .primary-control {
     transition: color 120ms ease, background-color 120ms ease, transform 80ms ease;
-  }
-
-  .primary-control:hover {
-    background: var(--color-accent-hover);
-  }
-
-  .primary-control:active {
-    background: var(--color-accent-active);
   }
 
   .accent-swatch {
@@ -732,3 +714,35 @@
     background: linear-gradient(90deg, var(--swatch-light) 0 50%, var(--swatch-dark) 50% 100%);
   }
 }
+
+.primary-control:hover {
+  background: var(--color-accent-hover);
+}
+
+.primary-control:active {
+  background: var(--color-accent-active);
+}
+
+.icon-control:hover {
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
+}
+
+.icon-control:active {
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-active);
+  transform: translateY(1px);
+}
+
+.icon-control.text-timer-low:hover,
+.icon-control.text-timer-low:active {
+  background: var(--color-danger-soft);
+  color: var(--color-timer-low);
+}
+
+.grip-hit:hover > span,
+.grip-hit:focus-visible > span,
+.grip-hit[data-dragging="true"] > span {
+  background-color: var(--color-accent) !important;
+}
+

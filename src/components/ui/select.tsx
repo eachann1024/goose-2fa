@@ -41,7 +41,7 @@ function SelectTrigger({
  data-slot="select-trigger"
  data-size={size}
  className={cn(
-"flex w-fit items-center justify-between gap-1.5 rounded-lg border border-border bg-input py-2 pr-2 pl-2.5 text-sm text-fg whitespace-nowrap transition-[color,background-color,border-color] outline-none select-none hover:border-border-strong hover:bg-surface-hover active:bg-surface-active data-[popup-open]:border-accent data-[popup-open]:bg-surface data-[pressed]:bg-surface-active data-disabled:cursor-not-allowed data-disabled:border-border-soft data-disabled:bg-surface-hover data-disabled:text-fg-faint data-placeholder:text-fg-faint data-[size=default]:h-8 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+"flex w-fit items-center justify-between gap-1.5 rounded-lg border border-border bg-input py-2 pr-2 pl-2.5 text-sm text-fg whitespace-nowrap transition-[color,background-color,border-color] outline-none select-none hover:border-accent hover:bg-accent-subtle active:bg-surface-active data-[popup-open]:border-accent data-[popup-open]:bg-surface data-[pressed]:bg-surface-active data-disabled:cursor-not-allowed data-disabled:border-border-soft data-disabled:bg-surface-hover data-disabled:text-fg-faint data-placeholder:text-fg-faint data-[size=default]:h-8 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
  className
  )}
  {...props}
@@ -117,7 +117,7 @@ function SelectItem({
  <SelectPrimitive.Item
  data-slot="select-item"
  className={cn(
-"relative flex min-h-8 w-full cursor-default items-center gap-1.5 rounded-md py-1.5 pr-8 pl-2 text-[12.5px] text-fg-muted outline-hidden select-none data-highlighted:bg-surface-hover data-highlighted:text-fg data-selected:bg-accent-subtle data-selected:text-accent active:bg-surface-active data-disabled:pointer-events-none data-disabled:text-fg-faint data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+"relative flex min-h-8 w-full cursor-default items-center gap-1.5 rounded-md py-1.5 pr-8 pl-2 text-[12.5px] text-fg-muted outline-hidden select-none data-highlighted:bg-accent-subtle data-highlighted:text-accent data-selected:bg-accent-subtle data-selected:text-accent active:bg-surface-active data-disabled:pointer-events-none data-disabled:text-fg-faint data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
  className
  )}
  {...props}

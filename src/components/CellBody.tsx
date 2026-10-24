@@ -19,7 +19,7 @@ interface CellBodyProps {
 }
 
 const detailHit =
-  "flex text-fg-muted opacity-0 pointer-events-none transition-all hover:bg-bg focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 active:bg-surface-active";
+  "flex items-center justify-center rounded-lg text-fg-muted opacity-0 pointer-events-none transition-colors hover:bg-accent-subtle hover:text-accent focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 active:bg-accent-subtle";
 
 // 拖动时 useSortable 每帧都会让 CodeCell 重渲染，memo 让卡片内容跳过这部分工作。
 export const CellBody = memo(function CellBody({
@@ -92,7 +92,7 @@ export const CellBody = memo(function CellBody({
             {!copied && !overlay && (
               <button
                 onClick={onRefresh}
-                className="rounded-md p-1 text-fg-faint transition-colors hover:bg-bg hover:text-accent active:bg-surface-active"
+                className="rounded-md p-1 text-fg-faint transition-colors hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle"
                 aria-label="下一个"
               >
                 <RefreshCw size={15} />
@@ -104,7 +104,7 @@ export const CellBody = memo(function CellBody({
         {!overlay && (
           <button
             onClick={onDetailClick}
-            className={`${detailHit} size-11 shrink-0 items-center justify-center rounded-lg`}
+            className={`${detailHit} size-11 shrink-0`}
             aria-label="详情"
           >
             <Info size={20} />
@@ -121,14 +121,14 @@ export const CellBody = memo(function CellBody({
         {!overlay && (
           <button
             onClick={onDetailClick}
-            className={`${detailHit} absolute right-0 top-0 size-12 items-start justify-end rounded-tr-cell rounded-bl-xl pr-2.5 pt-2`}
+            className={`${detailHit} absolute right-1.5 top-1.5 size-7 before:absolute before:right-0 before:top-0 before:size-14 before:content-['']`}
             aria-label="详情"
           >
             <Info size={18} />
           </button>
         )}
 
-        <span className="mb-1 flex min-w-0 max-w-[calc(100%-40px)] items-baseline gap-1 leading-tight">
+        <span className="mb-1 flex min-w-0 max-w-[calc(100%-52px)] items-baseline gap-1 leading-tight">
           <span className={`${subtitle ? "max-w-[60%] shrink-0" : "min-w-0"} truncate text-[10.5px] font-semibold text-fg`}>{title}</span>
           {subtitle && <span className="truncate text-[10px] text-fg-faint">{subtitle}</span>}
         </span>
@@ -155,7 +155,7 @@ export const CellBody = memo(function CellBody({
           {!isTotp && !copied && !overlay && (
             <button
               onClick={onRefresh}
-              className="rounded-md p-0.5 text-fg-faint transition-colors hover:bg-bg hover:text-accent active:bg-surface-active"
+              className="rounded-md p-0.5 text-fg-faint transition-colors hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle"
               aria-label="下一个"
             >
               <RefreshCw size={13} />
@@ -192,14 +192,14 @@ export const CellBody = memo(function CellBody({
       {!overlay && (
         <button
           onClick={onDetailClick}
-          className={`${detailHit} absolute right-0 top-0 size-16 items-start justify-end rounded-tr-cell rounded-bl-2xl pr-3.5 pt-3`}
+          className={`${detailHit} absolute right-1.5 top-1.5 size-8 before:absolute before:right-0 before:top-0 before:size-16 before:content-['']`}
           aria-label="详情"
         >
           <Info size={20} />
         </button>
       )}
 
-      <span className="mb-1.5 flex min-w-0 max-w-[calc(100%-52px)] items-baseline gap-1.5 leading-tight">
+      <span className="mb-1.5 flex min-w-0 max-w-[calc(100%-58px)] items-baseline gap-1.5 leading-tight">
         <span className={`${subtitle ? "max-w-[60%] shrink-0" : "min-w-0"} truncate text-[13px] font-semibold text-fg`}>{title}</span>
         {subtitle && <span className="truncate text-[12px] text-fg-faint">{subtitle}</span>}
       </span>
@@ -226,7 +226,7 @@ export const CellBody = memo(function CellBody({
         {!isTotp && !copied && !overlay && (
           <button
             onClick={onRefresh}
-            className="rounded-md p-1 text-fg-faint transition-colors hover:bg-bg hover:text-accent active:bg-surface-active"
+            className="rounded-md p-1 text-fg-faint transition-colors hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle"
             aria-label="下一个"
           >
             <RefreshCw size={15} />

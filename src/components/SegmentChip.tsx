@@ -73,8 +73,8 @@ export function SegmentChip({
             : active
               ? "bg-accent-subtle text-accent"
               : muted
-                ? "text-fg-faint hover:bg-surface-hover hover:text-fg-muted active:bg-surface-active"
-                : "text-fg-muted hover:bg-surface-hover hover:text-fg active:bg-surface-active"
+                ? "text-fg-faint hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle"
+                : "text-fg-muted hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle"
       }`}
     >
       <span className="max-w-[7rem] truncate text-[11.5px] font-medium leading-none">

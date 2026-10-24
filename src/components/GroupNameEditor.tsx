@@ -45,7 +45,7 @@ export function GroupNameEditor({ inputRef, value, onChange, onSubmit, onCancel,
       <button type="submit" className="rounded-full p-0.5 text-accent transition-colors hover:bg-accent-subtle active:bg-surface-active" aria-label={creating ? "创建分组" : "确认重命名"}>
         <Check size={12} />
       </button>
-      <button type="button" onClick={onCancel} className="rounded-full p-0.5 text-fg-faint transition-colors hover:bg-surface-hover active:bg-surface-active" aria-label={creating ? "取消创建" : "取消重命名"}>
+      <button type="button" onClick={onCancel} className="rounded-full p-0.5 text-fg-faint transition-colors hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle" aria-label={creating ? "取消创建" : "取消重命名"}>
         <X size={12} />
       </button>
     </form>

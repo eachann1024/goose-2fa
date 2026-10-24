@@ -55,7 +55,7 @@ export function TransferMenu({
             <button
               onClick={onExportFile}
               disabled={accountCount === 0}
-              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-border-strong hover:bg-surface-hover active:bg-surface-active disabled:cursor-not-allowed disabled:border-border-soft disabled:bg-surface-hover disabled:text-fg-faint disabled:opacity-100"
+              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-accent hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle disabled:cursor-not-allowed disabled:border-border-soft disabled:bg-surface-hover disabled:text-fg-faint disabled:opacity-100"
             >
               {exported ? (
                 <>
@@ -72,7 +72,7 @@ export function TransferMenu({
             <button
               onClick={onCopyUris}
               disabled={accountCount === 0}
-              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-border-strong hover:bg-surface-hover active:bg-surface-active disabled:cursor-not-allowed disabled:border-border-soft disabled:bg-surface-hover disabled:text-fg-faint disabled:opacity-100"
+              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-accent hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle disabled:cursor-not-allowed disabled:border-border-soft disabled:bg-surface-hover disabled:text-fg-faint disabled:opacity-100"
             >
               {copied ? (
                 <>
@@ -104,14 +104,14 @@ export function TransferMenu({
           <div className="flex gap-2">
             <button
               onClick={onOpenFile}
-              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-border-strong hover:bg-surface-hover active:bg-surface-active"
+              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-accent hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle"
             >
               <FileUp size={14} />
               选择文件
             </button>
             <button
               onClick={onClipboardImport}
-              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-border-strong hover:bg-surface-hover active:bg-surface-active"
+              className="flex flex-1 items-center justify-center gap-2 rounded-cell border bg-surface py-2.5 text-[12.5px] font-medium text-fg transition-colors hover:border-accent hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle"
             >
               <Copy size={14} />
               从剪贴板
