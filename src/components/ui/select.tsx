@@ -60,7 +60,7 @@ function SelectContent({
  className,
  children,
  side ="bottom",
- sideOffset = 4,
+ sideOffset = 8,
  align ="center",
  alignOffset = 0,
  alignItemWithTrigger = true,
@@ -87,7 +87,7 @@ function SelectContent({
  {...props}
  >
  <SelectScrollUpButton />
- <SelectPrimitive.List>{children}</SelectPrimitive.List>
+ <SelectPrimitive.List className="flex flex-col gap-1">{children}</SelectPrimitive.List>
  <SelectScrollDownButton />
  </SelectPrimitive.Popup>
  </SelectPrimitive.Positioner>
