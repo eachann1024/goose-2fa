@@ -7,6 +7,7 @@ import type { ViewMode } from "@/stores/useAccounts";
 
 import { CellBody } from "./CellBody";
 import { CellShell } from "./CellShell";
+import { AccountContextMenu } from "./AccountContextMenu";
 
 interface CodeCellProps {
   account: AccountData;
@@ -86,29 +87,31 @@ export function CodeCell({
   };
 
   return (
-    <CellShell
-      ref={setNodeRef}
-      style={style}
-      viewMode={viewMode}
-      copied={copied}
-      onClick={() => void handleCopy()}
-      copyLabel={`复制 ${account.note || account.issuer || account.name} 的验证码`}
-      interactive
-      activatorRef={setActivatorNodeRef}
-      activatorProps={sortable ? { ...attributes, ...listeners } : undefined}
-    >
-      <CellBody
-        account={account}
-        code={code}
-        remaining={remaining}
-        period={period}
-        copied={copied}
-        copyError={copyError}
+    <AccountContextMenu account={account} disabled={isDragging} onCopy={handleCopy} onDetail={onDetail}>
+      <CellShell
+        ref={setNodeRef}
+        style={style}
         viewMode={viewMode}
-        onDetailClick={handleDetailClick}
-        onRefresh={handleRefresh}
-      />
-    </CellShell>
+        copied={copied}
+        onClick={() => void handleCopy()}
+        copyLabel={`复制 ${account.note || account.issuer || account.name} 的验证码`}
+        interactive
+        activatorRef={setActivatorNodeRef}
+        activatorProps={sortable ? { ...attributes, ...listeners } : undefined}
+      >
+        <CellBody
+          account={account}
+          code={code}
+          remaining={remaining}
+          period={period}
+          copied={copied}
+          copyError={copyError}
+          viewMode={viewMode}
+          onDetailClick={handleDetailClick}
+          onRefresh={handleRefresh}
+        />
+      </CellShell>
+    </AccountContextMenu>
   );
 }
 
