@@ -91,20 +91,19 @@ def feed_identity(markdown):
 
 
 def unwrap(text):
-    body = text.replace('\r\n', '\n').replace('\r', '\n').strip()
-    fenced = re.fullmatch(r'```(?:markdown|md)?\s*\n(.*)\n```', body, re.S)
+    body = text.replace('\r\n', '\n').replace('\r', '\n')
+    fenced = re.fullmatch(r'\s*```(?:markdown|md)?[^\n]*\n(.*)\n```\s*', body, re.S)
     if fenced:
-        body = fenced.group(1).strip('\n')
-    return body + '\n'
+        body = fenced.group(1)
+    return body if body.endswith('\n') else body + '\n'
 
 
 def ensure_structure(source, translated):
     expected, actual = structure(source), structure(translated)
     if expected != actual:
         raise ValueError(
-            'Translation structure mismatch: '
-            f'headings {actual[0]} (expected {expected[0]}), '
-            f'list items {actual[1]} (expected {expected[1]})')
+            f'Translation structure mismatch: headings {actual[0]} '
+            f'(expected {expected[0]}), list items {actual[1]} (expected {expected[1]})')
     return translated
 
 
@@ -132,31 +131,45 @@ def request_translation(key, markdown):
     except urllib.error.URLError as error:
         raise RuntimeError(f'DeepSeek API request failed: {error.reason}') from None
     try:
-        content = json.loads(raw)['choices'][0]['message']['content']
+        choice = json.loads(raw)['choices'][0]
+        reason = choice.get('finish_reason')
+        content = choice['message']['content']
     except (KeyError, IndexError, TypeError, json.JSONDecodeError) as error:
         raise RuntimeError(f'DeepSeek API returned an unexpected response: {error}') from None
+    if reason != 'stop':
+        shown = reason if isinstance(reason, str) and reason else 'missing'
+        raise RuntimeError(f'DeepSeek translation stopped early: finish_reason={shown}')
     if not isinstance(content, str) or not content.strip():
         raise RuntimeError('DeepSeek API returned empty translation')
     return content
 
 
 def translate(markdown, mock):
-    if mock:
-        return ensure_structure(markdown, unwrap(markdown))
-    key = os.environ.get('DEEPSEEK_API_KEY', '').strip()
-    if not key:
+    sections = [part for part in re.split(r'(?=^## )', markdown, flags=re.M) if part]
+    if not sections:
+        raise ValueError('CHANGELOG.md is empty')
+    key = '' if mock else os.environ.get('DEEPSEEK_API_KEY', '').strip()
+    if not mock and not key:
         raise RuntimeError('DEEPSEEK_API_KEY is not set')
-    last = None
-    for attempt in range(4):
-        try:
-            return ensure_structure(markdown, unwrap(request_translation(key, markdown)))
-        except Exception as error:
-            last = error
-            if attempt == 3:
+    pieces = []
+    for index, section in enumerate(sections, 1):
+        if mock:
+            pieces.append(ensure_structure(section, section))
+            continue
+        last = None
+        for attempt in range(4):
+            try:
+                piece = unwrap(request_translation(key, section))
+                pieces.append(ensure_structure(section, piece))
                 break
-            time.sleep(2 ** attempt)
-    raise RuntimeError(f'DeepSeek translation failed after 3 retries: {redact(last)}') from None
-
+            except Exception as error:
+                last = error
+                if attempt == 3:
+                    raise RuntimeError(
+                        f'CHANGELOG section {index}/{len(sections)}: DeepSeek translation '
+                        f'failed after 3 retries: {redact(last)}') from None
+                time.sleep(2 ** attempt)
+    return ensure_structure(markdown, ''.join(pieces))
 
 def render(version, date, markdown):
     content = json.dumps(
