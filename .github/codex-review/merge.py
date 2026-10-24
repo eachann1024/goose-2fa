@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Squash-merge gate. Review JSON is read from an artifact, never a job output.
-
-Same-repo owner PRs (ALLOWED_AUTHORS) whose verdict is safe_to_merge merge
-without the bot-automerge label, including PROTECTED_PATHS. SECRET_PATHS still
-block the merge and get needs-human. Forks and other authors keep the old
-label-and-protected-path behavior. This script does not check out PR code.
-"""
+"""Squash-merge gate. Review JSON comes from an artifact, never a job output."""
 import json
 import os
 import re
@@ -42,11 +36,7 @@ def matches(name, pattern):
 
 
 def secret_match(name, pattern):
-    """Match a secret pattern against every path segment, not only the file name.
-
-    `secrets` and `credentials` are exact segments. A trailing `*` is a segment
-    prefix (`.env*`, `id_rsa*`). A leading `*` is a segment suffix (`*.pem`).
-    """
+    """Match every path segment: exact name, trailing-* prefix, or leading-* suffix."""
     segments = [part for part in name.split("/") if part]
     if pattern.startswith("*"):
         suffix = pattern[1:]
@@ -63,6 +53,24 @@ def matching(names, patterns):
 
 def matching_secret(names, patterns):
     return [name for name in names if any(secret_match(name, pattern) for pattern in patterns)]
+
+
+def changed_paths(pages):
+    """Filename plus previous_filename. Renames into or out of a secret path, and deletions, all count."""
+    current, secret_names = [], []
+    for page in pages:
+        for item in page:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("filename")
+            previous = item.get("previous_filename")
+            if isinstance(name, str) and name:
+                current.append(name)
+                if name not in secret_names:
+                    secret_names.append(name)
+            if isinstance(previous, str) and previous and previous not in secret_names:
+                secret_names.append(previous)
+    return current, secret_names
 
 
 def gh(*args, check=True):
@@ -167,11 +175,11 @@ def load_review():
         return {}, str(exc)
 
 
-def protection_reasons(names, owner_safe):
+def protection_reasons(names, owner_safe, secret_names=None):
     secret_patterns = split_patterns(env.get("SECRET_PATHS") or DEFAULT_SECRET_PATHS)
     protected_patterns = split_patterns(env.get("PROTECTED_PATHS"))
     reasons = []
-    secret_hit = matching_secret(names, secret_patterns)
+    secret_hit = matching_secret(names if secret_names is None else secret_names, secret_patterns)
     protected_hit = matching(names, protected_patterns)
     if secret_hit:
         reasons.append("改动了密钥材料路径：" + ", ".join(secret_hit[:10]))
@@ -229,8 +237,8 @@ def main():
         reasons.append("PR 带有安全疑虑标签")
 
     files = json.loads(gh("api", "--paginate", "--slurp", f"repos/{repo}/pulls/{pr}/files?per_page=100"))
-    names = [item["filename"] for page in files for item in page]
-    reasons.extend(protection_reasons(names, owner_safe))
+    names, secret_names = changed_paths(files)
+    reasons.extend(protection_reasons(names, owner_safe, secret_names))
     if reasons:
         block_merge(reasons, review, repo, pr, sha, block)
         raise SystemExit(0)
