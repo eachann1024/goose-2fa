@@ -37,6 +37,7 @@ env:
   # 密钥材料按路径段判断。任何作者（含仓库主人的 safe_to_merge）命中后都不自动合并，并打 needs-human。
   # secrets、credentials 必须是完整路径段（如 .github/secrets/production.json）。
   # .env*、id_rsa* 是段前缀；*.pem、*.key、*.p12 是段后缀。
+  # 重命名同时看 filename 和 previous_filename（改入或改出都算）；删除的文件同样算。
   SECRET_PATHS: ".env*,secrets,credentials,*.pem,*.key,*.p12,id_rsa*"
 
 jobs:
