@@ -37,22 +37,21 @@ export function CellShell({
   const base = copied
     ? "copied-flash border-copied-border"
     : interactive
-      ? "bg-surface hover:bg-surface-hover hover:border-border-strong " +
-        (isList ? "active:scale-[0.99]" : "active:scale-[0.98]")
+      ? "bg-surface hover:bg-surface-hover hover:border-border-strong active:bg-surface-active"
       : "bg-surface";
 
   return (
     <div
       ref={ref}
       style={style}
-      className={`${className.includes("dragging-overlay") ? "" : "cell-enter"} group relative cursor-pointer rounded-cell border text-left transition-all duration-150 ${layout} ${base} ${className}`}
+      className={`${className.includes("dragging-overlay") ? "" : "cell-enter"} group relative cursor-pointer rounded-cell border text-left transition-[background-color,border-color,box-shadow] duration-150 ${layout} ${base} ${className}`}
     >
       {interactive && (
         <button
           type="button"
           ref={activatorRef}
           {...activatorProps}
-          className={`absolute inset-0 rounded-cell ${activatorProps ? "touch-none cursor-grab active:cursor-grabbing" : ""}`}
+          className={`absolute inset-0 rounded-cell ${activatorProps ? "touch-none active:cursor-grabbing" : ""}`}
           onClick={onClick}
           aria-label={copyLabel}
         />

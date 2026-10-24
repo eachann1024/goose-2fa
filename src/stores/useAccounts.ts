@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { PlatformAdapter } from "@/platform/types";
 import { applyAccentColor } from "@/lib/accent-color";
 import type { AccountsState, StoreRuntime, StoreServices, StoreAccess } from "./accounts/store-types";
-export type { SyncStatus, ViewMode } from "./accounts/store-types";
+export type { SyncStatus, ThemeMode, ViewMode } from "./accounts/store-types";
 import { loadViewMode, loadSelectedGroup, loadAccentColor, SYNC_ENABLED_KEY, SYNC_PATH_KEY } from "./accounts/preferences";
 import { createStorage } from "./accounts/storage";
 import { createSyncSource } from "./accounts/sync-source";
@@ -222,6 +222,7 @@ export const useAccounts = create<AccountsState>((set, get) => {
     setShowTrash: createPreferenceActionsInstance.setShowTrash,
     toggleDark: createPreferenceActionsInstance.toggleDark,
     toggleThemeLock: createPreferenceActionsInstance.toggleThemeLock,
+    setThemeMode: createPreferenceActionsInstance.setThemeMode,
     syncSystemDark: createPreferenceActionsInstance.syncSystemDark,
     setEditMode: createPreferenceActionsInstance.setEditMode,
   };

@@ -4,7 +4,7 @@
   "author": "Antigravity",
   "homepage": "https://github.com/eachann1024/goose-2fa",
   "version": "0.1.6",
-  "logo": "public/logo.png",
+  "logo": "logo.png",
   "pluginSetting": {
     "single": true,
     "height": 560
@@ -19,29 +19,10 @@
         "验证码",
         "二步验证"
       ]
-    },
-    {
-      "code": "quick",
-      "explain": "快速取 OTP 并粘贴到当前窗口",
-      "cmds": [
-        {
-          "type": "regex",
-          "label": "鹅的验证：快速取码",
-          "match": "/^(2fa|otp|验证码)\\s+\\S+/i"
-        }
-      ]
-    },
-    {
-      "code": "manage",
-      "explain": "管理鹅的验证账户",
-      "cmds": [
-        "管理鹅的验证",
-        "goose 2fa"
-      ]
     }
   ],
-  "main": "dist-utools/index.html",
-  "preload": "utools/preload.cjs",
+  "main": "dist/index.html",
+  "preload": "preload/preload.cjs",
   "name": "goose-2fa",
   "title": "鹅的验证"
 }

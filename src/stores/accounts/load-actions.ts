@@ -30,10 +30,10 @@ export function createLoadActions(set: StoreSet, get: StoreGet, runtime: StoreRu
             && runtime.writeApproval?.path === syncPath && runtime.writeApproval.mode === "create";
           if (!bootstrap) {
             const message = source.status === "unresolved"
-              ? "数据源路径无法解析，请在设置中重新选择文件。"
+              ? "数据源路径无法解析，已停止读取。"
               : services.isMissingFile(source.status)
-                ? "数据源文件不存在或为空，请在设置中确认路径或新建文件。"
-                : "数据源文件无法解析或读取，请在设置中确认路径。";
+                ? "数据源文件不存在或为空，已停止读取。"
+                : "数据源文件无法解析或读取。";
             runtime.skipLocalCache = true;
             set({
               loadStatus: "error", loadError: message,
@@ -78,7 +78,7 @@ export function createLoadActions(set: StoreSet, get: StoreGet, runtime: StoreRu
       } catch (error) {
         console.error("[goose-2fa] load failed:", error);
         set({
-          loadStatus: "error", loadError: "无法读取原有账户，已有数据不会被覆盖。请重试或在设置中选择数据文件。",
+          loadStatus: "error", loadError: "无法读取原有账户，已有数据不会被覆盖。请重试。",
           localCacheBroken: true,
         });
       }

@@ -1,5 +1,6 @@
+import { memo } from "react";
 import { useTimerReady } from "@/hooks/useTimerReady";
-import { RefreshCw, Check, Info } from "lucide-react";
+import { RefreshCw, Check, Info, PenLine } from "lucide-react";
 import { formatCode } from "@/lib/otp";
 import type { AccountData } from "@/lib/types";
 import type { ViewMode } from "@/stores/useAccounts";
@@ -17,7 +18,11 @@ interface CellBodyProps {
   onRefresh?: (e: React.MouseEvent) => void;
 }
 
-export function CellBody({
+const detailHit =
+  "flex text-fg-muted opacity-0 pointer-events-none transition-all hover:bg-bg focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 active:bg-surface-active";
+
+// 拖动时 useSortable 每帧都会让 CodeCell 重渲染，memo 让卡片内容跳过这部分工作。
+export const CellBody = memo(function CellBody({
   account,
   code,
   remaining,
@@ -33,9 +38,8 @@ export function CellBody({
   const isTotp = account.type === "totp";
   const isLow = isTotp && remaining <= 5;
   const progress = isTotp ? remaining / period : 1;
-  const originalName = account.originalName
-    || (account.issuer ? `${account.issuer} (${account.name})` : account.name);
-  const displayName = account.note || originalName;
+  const { title, subtitle } = cardLabels(account);
+  const remark = account.remark?.trim() ?? "";
   const isList = viewMode === "list";
   const isCompact = viewMode === "compact";
 
@@ -43,8 +47,10 @@ export function CellBody({
     return (
       <>
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className="mb-0.5 truncate text-[12px] leading-tight text-fg-muted">
-            {displayName}
+          <span className="mb-1 flex min-w-0 items-baseline gap-1.5 leading-tight">
+            <span className={`${subtitle ? "max-w-[60%] shrink-0" : "min-w-0"} truncate text-[12.5px] font-semibold text-fg`}>{title}</span>
+            {subtitle && <span className="truncate text-[11.5px] text-fg-faint">{subtitle}</span>}
+            {remark && <span className="truncate text-[11.5px] text-fg-muted">· {remark}</span>}
           </span>
           <span
             className={`flex items-center font-mono text-[22px] font-semibold leading-none tracking-[0.08em] transition-colors duration-200 ${
@@ -98,7 +104,7 @@ export function CellBody({
         {!overlay && (
           <button
             onClick={onDetailClick}
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-fg-muted opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 active:bg-surface-active"
+            className={`${detailHit} size-11 shrink-0 items-center justify-center rounded-lg`}
             aria-label="详情"
           >
             <Info size={20} />
@@ -115,17 +121,16 @@ export function CellBody({
         {!overlay && (
           <button
             onClick={onDetailClick}
-            className="absolute right-1.5 top-1.5 flex size-7 items-center justify-center rounded-lg text-fg-muted opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 active:bg-surface-active"
+            className={`${detailHit} absolute right-0 top-0 size-12 items-start justify-end rounded-tr-cell rounded-bl-xl pr-2.5 pt-2`}
             aria-label="详情"
           >
             <Info size={18} />
           </button>
         )}
 
-        <span
-          className="mb-1 max-w-[calc(100%-32px)] truncate text-[10px] leading-tight text-fg-muted"
-        >
-          {displayName}
+        <span className="mb-1 flex min-w-0 max-w-[calc(100%-40px)] items-baseline gap-1 leading-tight">
+          <span className={`${subtitle ? "max-w-[60%] shrink-0" : "min-w-0"} truncate text-[10.5px] font-semibold text-fg`}>{title}</span>
+          {subtitle && <span className="truncate text-[10px] text-fg-faint">{subtitle}</span>}
         </span>
 
         <div className="flex w-full items-center justify-between">
@@ -175,6 +180,8 @@ export function CellBody({
             <span className="text-[9px] text-fg-faint">#{account.counter}</span>
           </div>
         )}
+
+        {remark && <RemarkLine remark={remark} size={9} className="mt-1.5 text-[10px]" />}
       </>
     );
   }
@@ -185,17 +192,16 @@ export function CellBody({
       {!overlay && (
         <button
           onClick={onDetailClick}
-          className="absolute right-1.5 top-1.5 flex size-8 items-center justify-center rounded-lg text-fg-muted opacity-0 transition-all hover:bg-bg hover:text-fg-muted focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 active:bg-surface-active"
+          className={`${detailHit} absolute right-0 top-0 size-16 items-start justify-end rounded-tr-cell rounded-bl-2xl pr-3.5 pt-3`}
           aria-label="详情"
         >
           <Info size={20} />
         </button>
       )}
 
-      <span
-        className="mb-1.5 max-w-[calc(100%-36px)] truncate text-[12px] leading-tight text-fg-muted"
-      >
-        {displayName}
+      <span className="mb-1.5 flex min-w-0 max-w-[calc(100%-52px)] items-baseline gap-1.5 leading-tight">
+        <span className={`${subtitle ? "max-w-[60%] shrink-0" : "min-w-0"} truncate text-[13px] font-semibold text-fg`}>{title}</span>
+        {subtitle && <span className="truncate text-[12px] text-fg-faint">{subtitle}</span>}
       </span>
 
       <div className="flex w-full items-center justify-between">
@@ -245,6 +251,32 @@ export function CellBody({
           <span className="text-[10px] text-fg-faint">#{account.counter}</span>
         </div>
       )}
+
+      {remark && <RemarkLine remark={remark} size={12} className="mt-2 text-[12px]" />}
     </>
   );
+});
+
+function RemarkLine({ remark, size, className }: { remark: string; size: number; className: string }) {
+  return (
+    <span className={`flex w-full min-w-0 items-center gap-1.5 leading-tight text-fg-muted ${className}`}>
+      <PenLine size={size} className="shrink-0 text-fg-faint" />
+      <span className="truncate">{remark}</span>
+    </span>
+  );
+}
+
+/** 导入的 issuer 偶尔带包裹引号，如 "xAI" */
+function stripQuotes(value: string) {
+  return value.trim().replace(/^(["'“”‘’])(.*)\1$|^[“‘](.*)[”’]$/, "$2$3").trim();
+}
+
+/** 卡片标题：自定义显示名 > 服务商 > 账户名；副标题：账户名（与标题重复时省略） */
+function cardLabels(account: AccountData) {
+  const issuer = stripQuotes(account.issuer ?? "");
+  const name = account.name.trim();
+  const note = account.note?.trim();
+  const title = note || issuer || name;
+  const subtitle = name && name !== title ? name : "";
+  return { title, subtitle };
 }

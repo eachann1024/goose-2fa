@@ -3,8 +3,6 @@ import {
   ArrowLeft,
   ClipboardPaste,
   ScanLine,
-  Clock,
-  Hash,
 } from "lucide-react";
 import { parseSecretInput } from "@/lib/secret-input";
 import { useAccountImport } from "./useAccountImport";
@@ -19,13 +17,11 @@ interface AddAccountProps {
   initialAction?: "clipboard" | "capture";
 }
 
-type OtpType = "totp" | "hotp";
 type FormError = { field: "name" | "secret"; message: string } | null;
 
 export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAccountProps) {
   const [name, setName] = useState("");
   const [secret, setSecret] = useState("");
-  const [type, setType] = useState<OtpType>("totp");
   const [error, setError] = useState<FormError>(null);
   const [importedAccount, setImportedAccount] = useState<ParsedOtpAuth | null>(null);
   const handleSecretInput = useCallback((text: string) => {
@@ -62,7 +58,7 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
 
     onAdd({
       issuer: "",
-      type,
+      type: "totp",
       digits: 6,
       period: 30,
       counter: 0,
@@ -71,7 +67,7 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
       name: trimmedName,
       secret: parsed.secret,
     });
-  }, [name, secret, type, importedAccount, onAdd]);
+  }, [name, secret, importedAccount, onAdd]);
 
   return (
     <div className="slide-in flex flex-col">
@@ -203,40 +199,6 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
                 {error.message}
               </p>
             )}
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-[12px] font-medium text-fg-muted">
-              类型
-            </label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setType("totp")}
-                type="button"
-                aria-pressed={type === "totp"}
-                className={`flex flex-1 items-center gap-2 rounded-cell border px-3.5 py-2.5 text-[12.5px] font-medium transition-colors ${
-                  type === "totp"
-                    ? "border-accent-border bg-accent-subtle text-accent"
-                    : "bg-surface text-fg-muted hover:bg-surface-hover active:bg-surface-active"
-                }`}
-              >
-                <Clock size={15} />
-                基于时间 (TOTP)
-              </button>
-              <button
-                onClick={() => setType("hotp")}
-                type="button"
-                aria-pressed={type === "hotp"}
-                className={`flex flex-1 items-center gap-2 rounded-cell border px-3.5 py-2.5 text-[12.5px] font-medium transition-colors ${
-                  type === "hotp"
-                    ? "border-accent-border bg-accent-subtle text-accent"
-                    : "bg-surface text-fg-muted hover:bg-surface-hover active:bg-surface-active"
-                }`}
-              >
-                <Hash size={15} />
-                基于计数器 (HOTP)
-              </button>
-            </div>
           </div>
 
           <button

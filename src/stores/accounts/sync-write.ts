@@ -28,16 +28,16 @@ export function createSyncWriter(runtime: StoreRuntime, services: StoreServices,
     const current = store.getState();
     if (!current.syncEnabled || current.syncPath !== path) return;
     if (source.status === "unresolved") {
-      services.failSync("数据源路径不是解析后的真实路径，已停止写入以免出现两把锁。请在设置中重新选择数据源文件。");
+      services.failSync("数据源路径不是解析后的真实路径，已停止写入以免出现两把锁。");
       return;
     }
     if (source.status === "invalid" || source.status === "error") {
-      services.failSync("数据源文件无法解析，已停止写入以免覆盖原文件。请在设置中确认路径。");
+      services.failSync("数据源文件无法解析，已停止写入以免覆盖原文件。");
       return;
     }
     if (services.isMissingFile(source.status)) {
       if (!approvingCreate && !approvingOverwrite) {
-        services.failSync("数据源文件不存在，已停止写入。请在设置中确认路径，或点击「新建数据源文件」。", {
+        services.failSync("数据源文件不存在，已停止写入。", {
           syncNeedsCreate: true,
         });
         return;
@@ -46,7 +46,7 @@ export function createSyncWriter(runtime: StoreRuntime, services: StoreServices,
       if (!runtime.syncBaseline || runtime.syncBaseline.path !== path) {
         store.setState({
           syncStatus: "conflict",
-          syncError: "尚未读取过该数据源文件，已停止写入。请先刷新确认文件内容。",
+          syncError: "尚未读取过该数据源文件，已停止写入。",
           syncNotice: null,
         });
         return;
@@ -97,7 +97,7 @@ export function createSyncWriter(runtime: StoreRuntime, services: StoreServices,
           return;
         }
         if (result.reason === "unresolved") {
-          services.failSync("数据源路径不是解析后的真实路径，已停止写入以免出现两把锁。请在设置中重新选择数据源文件。");
+          services.failSync("数据源路径不是解析后的真实路径，已停止写入以免出现两把锁。");
           return;
         }
         if (result.reason === "locked") {

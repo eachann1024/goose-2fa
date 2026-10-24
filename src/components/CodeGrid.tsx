@@ -1,14 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DndContext,
-  DragOverlay,
-  PointerSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
-  closestCenter,
-  pointerWithin,
-  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
@@ -18,8 +13,10 @@ import {
   verticalListSortingStrategy,
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
-import { CodeCell, CodeCellOverlay } from "./CodeCell";
+import { CodeCell } from "./CodeCell";
+import { AccountDragOverlay } from "./AccountDragOverlay";
 import { GroupSegments } from "./GroupSegments";
+import { HoldPointerSensor, groupAwareCollision, groupAxisModifier } from "@/lib/group-drag";
 import { EmptyState } from "./EmptyState";
 import { usePlatform } from "@/platform/context";
 import {
@@ -45,6 +42,7 @@ interface CodeGridProps {
   onDetail: (account: AccountData) => void;
   onIncrement: (id: string) => void;
   onReorder: (activeId: string, overId: string) => void;
+  onReorderGroups: (activeId: string, overId: string) => void;
   onMoveToGroup: (accountId: string, groupId: string | null) => void;
   onAdd: () => void;
   onClipboardImport: () => void;
@@ -65,6 +63,7 @@ export function CodeGrid({
   onDetail,
   onIncrement,
   onReorder,
+  onReorderGroups,
   onMoveToGroup,
   onAdd,
   onClipboardImport,
@@ -108,14 +107,9 @@ export function CodeGrid({
   const sortable = !searchQuery;
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { delay: 220, tolerance: 6 } }),
+    useSensor(HoldPointerSensor, { activationConstraint: { delay: 220, tolerance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
-
-  const detectCollision = useCallback<CollisionDetection>((args) => {
-    const pointerHits = pointerWithin(args);
-    return pointerHits.length > 0 ? pointerHits : closestCenter(args);
-  }, []);
 
   const handleCopy = useCallback(
     async (text: string) => {
@@ -131,6 +125,7 @@ export function CodeGrid({
   );
 
   const handleDragStart = useCallback((e: DragStartEvent) => {
+    if (e.active.data.current?.type === "group") return;
     const accountId = e.active.data.current?.accountId;
     setActiveId(typeof accountId === "string" ? accountId : null);
   }, []);
@@ -138,6 +133,18 @@ export function CodeGrid({
   const handleDragEnd = useCallback(
     (e: DragEndEvent) => {
       const { active, over } = e;
+      if (active.data.current?.type === "group") {
+        const activeGroupId = active.data.current.groupId;
+        const overGroupId = over?.data.current?.groupId;
+        if (
+          typeof activeGroupId === "string" &&
+          typeof overGroupId === "string" &&
+          activeGroupId !== overGroupId
+        ) {
+          onReorderGroups(activeGroupId, overGroupId);
+        }
+        return;
+      }
       const accountId = active.data.current?.accountId;
       if (typeof accountId !== "string") {
         setActiveId(null);
@@ -153,7 +160,7 @@ export function CodeGrid({
       }
       setActiveId(null);
     },
-    [onMoveToGroup, onReorder],
+    [onMoveToGroup, onReorder, onReorderGroups],
   );
 
   const handleDragCancel = useCallback(() => setActiveId(null), []);
@@ -183,10 +190,15 @@ export function CodeGrid({
   const showSegments = !searchQuery;
 
   return (
-    <div className={`relative z-[1] flex min-h-0 flex-1 flex-col ${showSegments ? "" : "pt-[45px]"}`}>
+    <div
+      className={`relative z-[1] flex min-h-0 flex-1 flex-col ${showSegments ? "" : "pt-[45px]"}`}
+      data-dragging={activeId !== null ? "" : undefined}
+    >
       <DndContext
         sensors={sensors}
-        collisionDetection={detectCollision}
+        collisionDetection={groupAwareCollision}
+        modifiers={[groupAxisModifier]}
+        accessibility={{ restoreFocus: false }}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
@@ -256,16 +268,7 @@ export function CodeGrid({
           </div>
         )}
 
-        <DragOverlay
-          dropAnimation={{
-            duration: 200,
-            easing: "cubic-bezier(0.16,1,0.3,1)",
-          }}
-        >
-          {activeAccount ? (
-            <CodeCellOverlay account={activeAccount} viewMode={viewMode} />
-          ) : null}
-        </DragOverlay>
+        <AccountDragOverlay account={activeAccount} viewMode={viewMode} />
       </DndContext>
     </div>
   );

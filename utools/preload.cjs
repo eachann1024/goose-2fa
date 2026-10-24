@@ -70,24 +70,54 @@ if (typeof window !== "undefined" && typeof utools !== "undefined") {
     }
   };
 
+  // 分离窗口不受 hideMainWindow 影响：官方唯一能让它消失的是 outPlugin（分离模式下只退到后台、不杀进程），
+  // 截完再用 redirect 回到本插件同一指令，uTools 会直接把原分离窗口拉回来。
+  const DETACH_HIDE_DELAY = 220;
+  const isDetached = () => {
+    try {
+      return utools?.getWindowType?.() === "detach";
+    } catch {
+      return false;
+    }
+  };
+
+  // 与 utools/plugin.json 的 pluginName、2fa 指令保持一致
+  const SELF_REDIRECT = ["鹅的验证", "2FA"];
+  // 截屏这一轮自己触发的退出/重新进入不通知页面，否则页面会重新载入、丢掉正在等待的截图结果
+  let selfCycleUntil = 0;
+  const restoreDetached = () => {
+    selfCycleUntil = Date.now() + 3000;
+    try {
+      utools?.redirect?.(SELF_REDIRECT);
+    } catch (err) {
+      console.error("[goose-2fa] restore detached window failed:", err);
+    }
+  };
+
   const captureScreen = (callback) => {
     try {
       if (typeof utools?.screenCapture === "function") {
+        const detached = isDetached();
         let settled = false;
-        utools.hideMainWindow();
-        utools.screenCapture((base64) => {
+        const finish = (base64) => {
           if (settled) return;
           settled = true;
-          utools.showMainWindow();
+          if (detached) restoreDetached();
+          else utools.showMainWindow();
           callback(base64 || null);
-        });
+        };
+        const start = () => utools.screenCapture((base64) => finish(base64));
+        if (detached) {
+          selfCycleUntil = Date.now() + 65000;
+          utools.outPlugin();
+          // 等窗口真正从屏幕上撤下再进入截屏，否则会把自己截进去
+          setTimeout(start, DETACH_HIDE_DELAY);
+        } else {
+          utools.hideMainWindow();
+          start();
+        }
         // 兜底：截屏 60 秒无响应则恢复窗口
-        setTimeout(() => {
-          if (settled) return;
-          settled = true;
-          utools.showMainWindow();
-          callback(null);
-        }, 60000);
+        setTimeout(() => finish(null), 60000);
         return true;
       }
     } catch (err) {
@@ -416,6 +446,10 @@ if (typeof window !== "undefined" && typeof utools !== "undefined") {
   };
 
   utools.onPluginEnter(({ code, type, payload }) => {
+    if (Date.now() < selfCycleUntil) {
+      selfCycleUntil = 0;
+      return;
+    }
     window.dispatchEvent(
       new CustomEvent("goose-2fa:plugin-enter", {
         detail: { code, type, payload },
@@ -425,6 +459,7 @@ if (typeof window !== "undefined" && typeof utools !== "undefined") {
 
   if (typeof utools.onPluginOut === "function") {
     utools.onPluginOut(() => {
+      if (Date.now() < selfCycleUntil) return;
       subInputHandler = null;
       window.dispatchEvent(new CustomEvent("goose-2fa:plugin-out"));
     });

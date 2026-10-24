@@ -21,20 +21,20 @@ export function exportAsJson(accounts: AccountData[], groups: VaultGroup[] = [])
   return JSON.stringify(payload, null, 2);
 }
 
+export function accountToOtpAuthUri(account: AccountData): string {
+  const label = account.issuer
+    ? `${encodeURIComponent(account.issuer)}:${encodeURIComponent(account.name)}`
+    : encodeURIComponent(account.name);
+  const params = new URLSearchParams();
+  params.set("secret", account.secret);
+  if (account.issuer) params.set("issuer", account.issuer);
+  params.set("algorithm", account.algorithm.replace("-", ""));
+  params.set("digits", String(account.digits));
+  if (account.type === "totp") params.set("period", String(account.period));
+  if (account.type === "hotp") params.set("counter", String(account.counter));
+  return `otpauth://${account.type}/${label}?${params.toString()}`;
+}
+
 export function exportAsUris(accounts: AccountData[]): string {
-  return accounts
-    .map((a) => {
-      const label = a.issuer
-        ? `${encodeURIComponent(a.issuer)}:${encodeURIComponent(a.name)}`
-        : encodeURIComponent(a.name);
-      const params = new URLSearchParams();
-      params.set("secret", a.secret);
-      if (a.issuer) params.set("issuer", a.issuer);
-      params.set("algorithm", a.algorithm.replace("-", ""));
-      params.set("digits", String(a.digits));
-      if (a.type === "totp") params.set("period", String(a.period));
-      if (a.type === "hotp") params.set("counter", String(a.counter));
-      return `otpauth://${a.type}/${label}?${params.toString()}`;
-    })
-    .join("\n");
+  return accounts.map(accountToOtpAuthUri).join("\n");
 }

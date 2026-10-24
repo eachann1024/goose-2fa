@@ -10,6 +10,29 @@ const incompatibleCssPatterns = [
   ["lch()", /(^|[^a-z-])lch\s*\(/i],
 ];
 
+// Tailwind 在静态回退色后追加 @supports (color:color-mix(in lab, red, red))。
+// uTools 的 Chrome 108 不支持 color-mix，删掉整段后仍保留前面的十六进制颜色。
+const colorMixSupports =
+  /@supports\s*\(\s*color\s*:\s*color-mix\s*\(\s*in\s+lab\s*,\s*red\s*,\s*red\s*\)\s*\)\s*\{/gi;
+
+function stripColorMixSupports(css) {
+  colorMixSupports.lastIndex = 0;
+  let result = "";
+  let last = 0;
+  for (const match of css.matchAll(colorMixSupports)) {
+    let depth = 1;
+    let index = match.index + match[0].length;
+    for (; index < css.length && depth > 0; index++) {
+      const char = css[index];
+      if (char === "{") depth += 1;
+      else if (char === "}") depth -= 1;
+    }
+    result += css.slice(last, match.index);
+    last = index;
+  }
+  return result + css.slice(last);
+}
+
 if (!fs.existsSync(distDir)) {
   console.error("dist-utools 目录不存在");
   process.exit(1);
@@ -20,12 +43,7 @@ try {
     if (!file.endsWith(".css")) continue;
     const cssPath = path.join(distDir, "assets", file);
     const css = fs.readFileSync(cssPath, "utf-8");
-    // Tailwind 4 的 preflight 会生成一段仅用于现代浏览器的 placeholder
-    // 渐进增强。项目已有显式 placeholder 颜色，uTools/Chrome 108 不需要它。
-    const compatibleCss = css.replace(
-      /@supports\s*\(color:color-mix\(in lab,\s*red,\s*red\)\)\{::placeholder\{color:color-mix\(in oklab,\s*currentcolor 50%,\s*transparent\)\}\}/gi,
-      "",
-    );
+    const compatibleCss = stripColorMixSupports(css);
     fs.writeFileSync(cssPath, compatibleCss);
 
     const unsupported = incompatibleCssPatterns.find(([, pattern]) =>

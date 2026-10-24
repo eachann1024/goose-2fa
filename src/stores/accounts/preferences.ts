@@ -55,7 +55,7 @@ export function applyFilePreferences(preferences: SyncPreferences): SyncPreferen
   return next;
 }
 
-export function createPreferenceActions(set: StoreSet, get: StoreGet, services: StoreServices): Pick<AccountsState, "setViewMode" | "setSelectedGroup" | "setAccentColor" | "setSearchQuery" | "setShowAddForm" | "setShowDataTransfer" | "setShowTrash" | "toggleDark" | "toggleThemeLock" | "syncSystemDark" | "setEditMode"> {
+export function createPreferenceActions(set: StoreSet, get: StoreGet, services: StoreServices): Pick<AccountsState, "setViewMode" | "setSelectedGroup" | "setAccentColor" | "setSearchQuery" | "setShowAddForm" | "setShowDataTransfer" | "setShowTrash" | "toggleDark" | "toggleThemeLock" | "setThemeMode" | "syncSystemDark" | "setEditMode"> {
   return {
     setViewMode: (mode) => {
       if (!canEditVault(get())) return;
@@ -110,6 +110,22 @@ export function createPreferenceActions(set: StoreSet, get: StoreGet, services: 
       } else {
         localStorage.setItem("goose-2fa-dark", String(get().isDark));
         set({ isThemeLocked: true });
+      }
+      services.scheduleSync();
+    },
+
+    setThemeMode: (mode) => {
+      if (!canEditVault(get())) return;
+      if (mode === "system") {
+        localStorage.removeItem("goose-2fa-dark");
+        const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.classList.toggle("dark", systemDark);
+        set({ isThemeLocked: false, isDark: systemDark });
+      } else {
+        const isDark = mode === "dark";
+        localStorage.setItem("goose-2fa-dark", String(isDark));
+        document.documentElement.classList.toggle("dark", isDark);
+        set({ isThemeLocked: true, isDark });
       }
       services.scheduleSync();
     },

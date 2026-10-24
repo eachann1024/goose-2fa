@@ -11,6 +11,7 @@ export type SourceRead =
   | { status: "missing" | "empty" | "invalid" | "unresolved" | "error" };
 
 export type ViewMode = "grid" | "compact" | "list";
+export type ThemeMode = "light" | "dark" | "system";
 
 export interface AccountsState {
   accounts: AccountData[];
@@ -80,6 +81,7 @@ export interface AccountsState {
   setShowTrash: (show: boolean) => void;
   toggleDark: () => void;
   toggleThemeLock: () => void;
+  setThemeMode: (mode: ThemeMode) => void;
   syncSystemDark: (isDark: boolean) => void;
   setEditMode: (edit: boolean) => void;
 }

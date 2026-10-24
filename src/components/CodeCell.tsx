@@ -41,10 +41,15 @@ export function CodeCell({
     transform,
     transition,
     isDragging,
+    isSorting,
   } = useSortable({
     id: `account:${account.id}`,
     disabled: !sortable,
     data: { type: "account", accountId: account.id },
+    transition: {
+      duration: 180,
+      easing: "cubic-bezier(0.23, 1, 0.32, 1)",
+    },
   });
 
   useEffect(() => () => clearTimeout(timeoutRef.current), []);
@@ -81,7 +86,7 @@ export function CodeCell({
 
   // 拖动源：拖起后留在原位作半透明"空位"，真正跟手的视觉由 DragOverlay 接管。
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
     ...(isDragging ? { opacity: 0.4 } : {}),
   };
@@ -93,6 +98,7 @@ export function CodeCell({
         style={style}
         viewMode={viewMode}
         copied={copied}
+        className={isDragging ? "dragging-source" : isSorting ? "dragging-sibling" : ""}
         onClick={() => void handleCopy()}
         copyLabel={`复制 ${account.note || account.issuer || account.name} 的验证码`}
         interactive
