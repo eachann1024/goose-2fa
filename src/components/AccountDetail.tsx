@@ -141,6 +141,7 @@ export function AccountDetail({
             label="账户备注"
             value={remark}
             placeholder="添加备注"
+            multiline
             onSave={(value) => onUpdateRemark(account.id, value)}
           />
         </div>
@@ -214,8 +215,6 @@ export function AccountDetail({
       <AccountMetadata
         account={account}
         groups={groups}
-        originalName={originalName}
-        displayName={displayName}
         onUpdateGroup={onUpdateGroup}
       />
       </>
