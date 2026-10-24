@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { ArrowLeft, Check, Copy, Trash2 } from "lucide-react";
 import { useOtpCode } from "@/hooks/useOtpCode";
+import { useTimerReady } from "@/hooks/useTimerReady";
 import { formatCode } from "@/lib/otp";
 import type { AccountData, VaultGroup } from "@/lib/types";
 import { EditableText } from "@/components/ui/editable-text";
@@ -31,13 +32,8 @@ export function AccountDetail({
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [barReady, setBarReady] = useState(false);
+  const barReady = useTimerReady(account.id);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => setBarReady(true)));
-    return () => cancelAnimationFrame(id);
-  }, []);
 
   const isTotp = account.type === "totp";
   const isLow = isTotp && remaining <= 5;
