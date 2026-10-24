@@ -2,10 +2,10 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useAccounts } from "@/stores/useAccounts";
 import { usePlatform } from "@/platform/context";
 import { Header } from "@/components/Header";
+import { FeedbackSheet } from "@/components/FeedbackSheet";
 import { CodeGrid } from "@/components/CodeGrid";
 import { AddAccount } from "@/components/AddAccount";
 import { DataTransfer } from "@/components/DataTransfer";
-import { Settings } from "@/components/Settings";
 import { TrashBin } from "@/components/TrashBin";
 import { AccountDetail } from "@/components/AccountDetail";
 import { QuickCode } from "@/components/QuickCode";
@@ -13,9 +13,10 @@ import { AlertCircle, LoaderCircle, RefreshCw } from "lucide-react";
 import type { AccountData } from "@/lib/types";
 import type { PluginEnterDetail } from "@/platform/types";
 
-type FlipState = "idle" | "opening" | "open" | "closing";
+type ViewState = "idle" | "opening" | "open" | "closing";
 
 export default function App() {
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const platform = usePlatform();
   const accounts = useAccounts((s) => s.accounts);
   const trash = useAccounts((s) => s.trash);
@@ -24,7 +25,6 @@ export default function App() {
   const showAddForm = useAccounts((s) => s.showAddForm);
   const showDataTransfer = useAccounts((s) => s.showDataTransfer);
   const showTrash = useAccounts((s) => s.showTrash);
-  const [showSettings, setShowSettings] = useState(false);
   const isDark = useAccounts((s) => s.isDark);
   const isThemeLocked = useAccounts((s) => s.isThemeLocked);
   const viewMode = useAccounts((s) => s.viewMode);
@@ -36,6 +36,7 @@ export default function App() {
   const loadError = useAccounts((s) => s.loadError);
   const setAccentColor = useAccounts((s) => s.setAccentColor);
   const reorderAccounts = useAccounts((s) => s.reorderAccounts);
+  const reorderGroups = useAccounts((s) => s.reorderGroups);
   const load = useAccounts((s) => s.load);
   const addAccount = useAccounts((s) => s.addAccount);
   const importAccounts = useAccounts((s) => s.importAccounts);
@@ -54,20 +55,20 @@ export default function App() {
   const setShowAddForm = useAccounts((s) => s.setShowAddForm);
   const setShowDataTransfer = useAccounts((s) => s.setShowDataTransfer);
   const setShowTrash = useAccounts((s) => s.setShowTrash);
-  const toggleDark = useAccounts((s) => s.toggleDark);
-  const toggleThemeLock = useAccounts((s) => s.toggleThemeLock);
+  const setThemeMode = useAccounts((s) => s.setThemeMode);
   const syncSystemDark = useAccounts((s) => s.syncSystemDark);
 
   const [addFormAction, setAddFormAction] = useState<"clipboard" | "capture" | undefined>();
   const [detailAccount, setDetailAccount] = useState<AccountData | null>(null);
-  const [flipState, setFlipState] = useState<FlipState>("idle");
+  const [viewState, setViewState] = useState<ViewState>("idle");
   const [quickMode, setQuickMode] = useState(false);
   const [quickQuery, setQuickQuery] = useState("");
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const focusReturnRef = useRef<HTMLElement | null>(null);
 
-  const transitionDelay = () =>
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 360;
+  // 与 index.css 景深淡入的时长 + 延迟对齐
+  const transitionDelay = (phase: "open" | "close") =>
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : phase === "open" ? 450 : 360;
 
   useEffect(() => {
     load();
@@ -137,42 +138,44 @@ export default function App() {
     clearTimeout(timerRef.current);
     focusReturnRef.current = document.activeElement as HTMLElement | null;
     setDetailAccount(account);
-    setFlipState("opening");
-    timerRef.current = setTimeout(() => setFlipState("open"), transitionDelay());
+    setViewState("opening");
+    timerRef.current = setTimeout(() => setViewState("open"), transitionDelay("open"));
   }, []);
 
   const handleCloseDetail = useCallback(() => {
     clearTimeout(timerRef.current);
-    setFlipState("closing");
+    setViewState("closing");
     timerRef.current = setTimeout(() => {
-      setFlipState("idle");
+      setViewState("idle");
       setDetailAccount(null);
       focusReturnRef.current?.focus();
-    }, transitionDelay());
+    }, transitionDelay("close"));
   }, []);
 
   const handleDeleteFromDetail = useCallback((id: string) => {
     clearTimeout(timerRef.current);
-    setFlipState("closing");
-    timerRef.current = setTimeout(() => {
-      removeAccount(id);
-      setFlipState("idle");
-      setDetailAccount(null);
-    }, transitionDelay());
+    // 趁详情还盖着列表时先删（列表重排、本地写入、同步都在这一刻完成），
+    // 等这帧画完再起返回动画，避免重活和动画挤在一起掉帧、列表在眼前跳动。
+    const latest = useAccounts.getState().accounts.find((a) => a.id === id);
+    if (latest) setDetailAccount(latest);
+    removeAccount(id);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      setViewState("closing");
+      timerRef.current = setTimeout(() => {
+        setViewState("idle");
+        setDetailAccount(null);
+      }, transitionDelay("close"));
+    }));
   }, [removeAccount]);
 
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
-  // 详情翻面时跟随 store 最新账户（改分组/备注后立即反映）。
+  // 打开详情时跟随 store 最新账户（改分组/备注后立即反映）。
   // 必须位于所有条件返回之前，保证每次渲染的 Hook 顺序一致。
   const liveDetail = useMemo(() => {
     if (!detailAccount) return null;
     return accounts.find((a) => a.id === detailAccount.id) ?? detailAccount;
   }, [accounts, detailAccount]);
-
-  if (showSettings) {
-    return <Settings onBack={() => setShowSettings(false)} />;
-  }
 
   if (loadStatus !== "ready") {
     return (
@@ -180,7 +183,6 @@ export default function App() {
         status={loadStatus}
         message={loadError}
         onRetry={load}
-        onSettings={() => setShowSettings(true)}
       />
     );
   }
@@ -236,27 +238,27 @@ export default function App() {
   }
 
   const frontClass = [
-    "flip-face flip-front flex min-h-0 flex-col bg-bg",
-    flipState === "opening" ? "flipping-out" : "",
-    flipState === "closing" ? "flipping-in" : "",
-    flipState === "open" ? "pointer-events-none opacity-0" : "",
+    "view-face view-list flex min-h-0 flex-col bg-bg",
+    viewState === "opening" ? "is-leaving" : "",
+    viewState === "closing" ? "is-entering" : "",
+    viewState === "open" ? "pointer-events-none opacity-0" : "",
   ].join(" ");
 
   const backClass = [
-    "flip-face flip-back",
-    flipState === "opening" ? "flipping-in" : "",
-    flipState === "closing" ? "flipping-out" : "",
-    flipState === "idle" ? "pointer-events-none" : "",
-    flipState === "open" ? "!transform-none !opacity-100" : "",
+    "view-face view-detail",
+    viewState === "opening" ? "is-entering" : "",
+    viewState === "closing" ? "is-leaving" : "",
+    viewState === "idle" ? "pointer-events-none" : "",
+    viewState === "open" ? "!transform-none !opacity-100" : "",
   ].join(" ");
 
   return (
-    <div className="flip-scene">
+    <div className="view-scene">
       {/* 正面：主界面 */}
       <div
         className={frontClass}
-        inert={flipState === "open" ? true : undefined}
-        aria-hidden={flipState === "open"}
+        inert={viewState === "open" ? true : undefined}
+        aria-hidden={viewState === "open"}
       >
         <div className="flex min-h-0 flex-1 flex-col">
           <Header
@@ -264,18 +266,13 @@ export default function App() {
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             viewMode={viewMode}
-            onToggleView={() => {
-              const next = viewMode === "compact" ? "grid" : viewMode === "grid" ? "list" : "compact";
-              setViewMode(next);
-            }}
+            onViewModeChange={setViewMode}
             onAdd={() => { setAddFormAction(undefined); setShowAddForm(true); }}
             onManageData={() => setShowDataTransfer(true)}
             onTrash={() => setShowTrash(true)}
-            onSettings={() => setShowSettings(true)}
-            isDark={isDark}
-            isThemeLocked={isThemeLocked}
-            onToggleDark={toggleDark}
-            onToggleThemeLock={toggleThemeLock}
+            onFeedback={() => setFeedbackOpen(true)}
+            themeMode={isThemeLocked ? (isDark ? "dark" : "light") : "system"}
+            onThemeModeChange={setThemeMode}
             accentColor={accentColor}
             onAccentColorChange={setAccentColor}
             trashCount={trash.length}
@@ -294,6 +291,7 @@ export default function App() {
             onDetail={handleOpenDetail}
             onIncrement={incrementCounter}
             onReorder={reorderAccounts}
+            onReorderGroups={reorderGroups}
             onMoveToGroup={updateAccountGroup}
             onAdd={() => { setAddFormAction(undefined); setShowAddForm(true); }}
             onClipboardImport={() => { setAddFormAction("clipboard"); setShowAddForm(true); }}
@@ -305,8 +303,8 @@ export default function App() {
       {liveDetail ? (
         <div
           className={backClass}
-          inert={flipState === "idle" ? true : undefined}
-          aria-hidden={flipState === "idle"}
+          inert={viewState === "idle" ? true : undefined}
+          aria-hidden={viewState === "idle"}
         >
           <AccountDetail
             account={liveDetail}
@@ -320,8 +318,9 @@ export default function App() {
           />
         </div>
       ) : (
-        <div className="flip-face flip-back pointer-events-none" aria-hidden="true" />
+        <div className="view-face view-detail pointer-events-none" aria-hidden="true" />
       )}
+      {feedbackOpen ? <FeedbackSheet onClose={() => setFeedbackOpen(false)} /> : null}
     </div>
   );
 }
@@ -330,12 +329,10 @@ function VaultLoadState({
   status,
   message,
   onRetry,
-  onSettings,
 }: {
   status: "idle" | "loading" | "error";
   message: string | null;
   onRetry: () => Promise<void>;
-  onSettings: () => void;
 }) {
   const failed = status === "error";
   return (
@@ -364,15 +361,6 @@ function VaultLoadState({
             <RefreshCw size={13} />
             重试
           </button>
-          {onSettings && (
-            <button
-              type="button"
-              onClick={onSettings}
-              className="flex min-h-9 items-center gap-1.5 rounded-lg border bg-surface px-3.5 text-[12.5px] text-fg-muted hover:bg-surface-hover"
-            >
-              设置数据文件
-            </button>
-          )}
         </div>
       )}
     </main>

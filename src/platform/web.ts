@@ -123,6 +123,8 @@ export function createWebAdapter(): PlatformAdapter {
       return true;
     },
 
+    supportsFileSync: false,
+
     readFromFile(): Promise<string | null> {
       return new Promise((resolve) => {
         const input = document.createElement("input");

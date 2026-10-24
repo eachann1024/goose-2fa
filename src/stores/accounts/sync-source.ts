@@ -60,7 +60,7 @@ export function createSyncSource(runtime: StoreRuntime, services: StoreServices,
   function syncLockMessage(info: SyncLockInfo): string {
     const holder = info.pid ? `持有者进程 ${info.pid}` : "持有者未知";
     const created = info.createdAt ? `，创建于 ${new Date(info.createdAt).toLocaleString()}` : "";
-    return `另一个程序正在写入数据源文件（${holder}${created}），本次改动没有写入。残留锁不会被自动清理：确认没有任何一端在写入后，可在设置里清理锁文件再重试。`;
+    return `另一个程序正在写入数据源文件（${holder}${created}），本次改动没有写入。残留锁不会被自动清理。`;
   }
 
   /**

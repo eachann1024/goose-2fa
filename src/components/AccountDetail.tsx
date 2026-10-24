@@ -1,11 +1,13 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { ArrowLeft, Check, Copy, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, Copy, KeyRound, QrCode, Trash2 } from "lucide-react";
 import { useOtpCode } from "@/hooks/useOtpCode";
 import { useTimerReady } from "@/hooks/useTimerReady";
 import { formatCode } from "@/lib/otp";
 import type { AccountData, VaultGroup } from "@/lib/types";
 import { EditableText } from "@/components/ui/editable-text";
 import { AccountMetadata } from "@/components/AccountMetadata";
+import { AccountShare, type ShareMode } from "@/components/AccountShare";
+
 
 interface AccountDetailProps {
   account: AccountData;
@@ -31,6 +33,7 @@ export function AccountDetail({
   const { code, remaining, period } = useOtpCode(account);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
+  const [shareMode, setShareMode] = useState<ShareMode | null>(null);
   const barReady = useTimerReady(account.id);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -57,24 +60,52 @@ export function AccountDetail({
     copyTimerRef.current = setTimeout(() => setCopied(false), 1200);
   }, [code, onCopy]);
 
+  // 详情页复用同一实例切换账户时，收起上一个账户的二维码 / 密钥。
+  useEffect(() => {
+    setShareMode(null);
+  }, [account.id]);
+
+  const toggleShare = (mode: ShareMode) => setShareMode((current) => (current === mode ? null : mode));
+
   const remark = account.remark ?? "";
 
+  const sharing = shareMode !== null;
+
   return (
-    <div className="flex min-h-screen flex-col bg-bg px-5 pb-6 pt-4">
-      {/* 顶栏 */}
-      <div className="mb-6 flex items-center gap-2">
+    <div className="flex min-h-full flex-col bg-bg">
+      {/* 顶栏固定；点开二维码或密钥时，下面只留被点开的面板 */}
+      <div className="sticky top-0 z-10 flex items-center gap-1 bg-bg px-5 pb-3 pt-4">
         <button
           autoFocus
           onClick={onClose}
           className="icon-control rounded-lg p-2 text-fg-muted"
           aria-label="返回"
+          title="返回"
         >
           <ArrowLeft size={17} />
         </button>
-        <span className="text-[15px] font-serif font-semibold tracking-tight text-fg">
-          账户详情
-        </span>
         <div className="flex-1" />
+        <button
+          type="button"
+          onClick={() => toggleShare("qr")}
+          aria-pressed={shareMode === "qr"}
+          className="icon-control rounded-lg p-2 text-fg-muted aria-pressed:bg-accent-subtle aria-pressed:text-accent"
+          aria-label="二维码"
+          title="二维码"
+        >
+          <QrCode size={17} />
+        </button>
+        <button
+          type="button"
+          onClick={() => toggleShare("secret")}
+          aria-pressed={shareMode === "secret"}
+          className="icon-control rounded-lg p-2 text-fg-muted aria-pressed:bg-accent-subtle aria-pressed:text-accent"
+          aria-label="密钥"
+          title="密钥"
+        >
+          <KeyRound size={17} />
+        </button>
+        <span aria-hidden="true" className="mx-1 h-4 w-px shrink-0 bg-border" />
         <button
           type="button"
           onClick={() => onDelete(account.id)}
@@ -86,6 +117,11 @@ export function AccountDetail({
         </button>
       </div>
 
+      <div className="flex flex-1 flex-col px-5 pb-6">
+      {sharing ? (
+        <AccountShare account={account} open={shareMode} onClose={() => setShareMode(null)} onCopy={onCopy} />
+      ) : (
+      <>
       <div className="mb-5">
         <EditableText
           key={`${account.id}-name`}
@@ -182,8 +218,9 @@ export function AccountDetail({
         displayName={displayName}
         onUpdateGroup={onUpdateGroup}
       />
-
-
+      </>
+      )}
+      </div>
     </div>
   );
 }

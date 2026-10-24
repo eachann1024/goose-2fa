@@ -766,3 +766,22 @@ describe("默认文档 JSON 数据模式", () => {
     expect(useAccounts.getState().syncEnabled).toBe(false);
   });
 });
+
+describe("外观三态", () => {
+  it("浅色、深色锁定主题，跟随系统解除锁定并读取系统外观", () => {
+    useAccounts.getState().setThemeMode("dark");
+    expect(useAccounts.getState()).toMatchObject({ isDark: true, isThemeLocked: true });
+    expect(localStorage.getItem("goose-2fa-dark")).toBe("true");
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+
+    useAccounts.getState().setThemeMode("light");
+    expect(useAccounts.getState()).toMatchObject({ isDark: false, isThemeLocked: true });
+    expect(localStorage.getItem("goose-2fa-dark")).toBe("false");
+
+    useAccounts.getState().setThemeMode("dark");
+    useAccounts.getState().setThemeMode("system");
+    expect(useAccounts.getState()).toMatchObject({ isDark: false, isThemeLocked: false });
+    expect(localStorage.getItem("goose-2fa-dark")).toBeNull();
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+  });
+});

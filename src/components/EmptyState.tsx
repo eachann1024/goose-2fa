@@ -56,7 +56,7 @@ export function EmptyState({ onAdd, onClipboardImport, onScreenCapture }: EmptyS
             className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-surface-hover active:bg-surface-active"
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-subtle text-accent transition-transform group-active:scale-95">
-              <ClipboardPaste size={17} strokeWidth={1.8} />
+              <ClipboardPaste size={18} strokeWidth={1.8} />
             </div>
             <div className="min-w-0">
               <span className="block text-[13px] font-medium text-fg">
@@ -73,7 +73,7 @@ export function EmptyState({ onAdd, onClipboardImport, onScreenCapture }: EmptyS
             className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-surface-hover active:bg-surface-active"
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-subtle text-accent transition-transform group-active:scale-95">
-              <ScanLine size={17} strokeWidth={1.8} />
+              <ScanLine size={18} strokeWidth={1.8} />
             </div>
             <div className="min-w-0">
               <span className="block text-[13px] font-medium text-fg">
