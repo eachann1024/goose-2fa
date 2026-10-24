@@ -25,11 +25,9 @@ API = 'https://api.deepseek.com/chat/completions'
 LIMIT = 512 * 1024
 SYSTEM = (
     'You translate Markdown into Simplified Chinese and return only the translated Markdown. '
-    'Do not add a commentary, a preamble, or a wrapping code fence. '
-    'Keep the format exactly: heading marks, list marks, emoji, blank lines, line breaks, '
-    'links, and code spans stay in place. '
-    'Do not change version numbers, dates, URLs, or inline code. '
-    'Text that is already Simplified Chinese stays as it is.'
+    'Do not add a commentary, a preamble, or a wrapping code fence. Keep the format exactly: '
+    'heading marks, list marks, emoji, blank lines, line breaks, links, and code spans stay in place. '
+    'Do not change version numbers, dates, URLs, or inline code. Text already in Simplified Chinese stays as it is.'
 )
 
 
@@ -48,7 +46,6 @@ def real_date(value):
     except ValueError:
         return False
 
-
 def version_tuple(value):
     return tuple(int(part) for part in value.split('.'))
 
@@ -59,11 +56,8 @@ def structure(text):
 
 def fallback_version():
     for path in VERSION_FILES:
-        file = Path(path)
-        if not file.is_file():
-            continue
         try:
-            version = json.loads(file.read_text(encoding='utf-8')).get('version', '')
+            version = json.loads(Path(path).read_text(encoding='utf-8')).get('version', '')
         except (OSError, json.JSONDecodeError):
             continue
         if re.fullmatch(VERSION, version):
@@ -83,48 +77,70 @@ def feed_identity(markdown):
         return best[1], best[2]
     version = fallback_version()
     dates = [match['date'] for match in DATED.finditer(markdown) if real_date(match['date'])]
-    if not version:
-        raise ValueError('CHANGELOG.md has no versioned heading and no package or plugin version')
-    if not dates:
-        raise ValueError('CHANGELOG.md has no ## YYYY-MM-DD heading to date the update feed')
+    if not version or not dates:
+        raise ValueError('CHANGELOG.md has no versioned heading and no usable version or date')
     return version, max(dates)
 
 
 def unwrap(text):
     body = text.replace('\r\n', '\n').replace('\r', '\n')
     fenced = re.fullmatch(r'\s*```(?:markdown|md)?[^\n]*\n(.*)\n```\s*', body, re.S)
-    if fenced:
-        body = fenced.group(1)
-    return body if body.endswith('\n') else body + '\n'
+    return fenced.group(1) if fenced else body
+
+
+def line_kind(line):
+    if not line.strip():
+        return 'blank'
+    return 'heading' if HEADING.match(line) else 'list' if ITEM.match(line) else 'text'
 
 
 def ensure_structure(source, translated):
     expected, actual = structure(source), structure(translated)
-    if expected != actual:
+    left, right = source.splitlines(), translated.splitlines()
+    if expected != actual or len(left) != len(right):
         raise ValueError(
-            f'Translation structure mismatch: headings {actual[0]} '
-            f'(expected {expected[0]}), list items {actual[1]} (expected {expected[1]})')
+            f'Translation line structure mismatch: headings {actual[0]}/{expected[0]}, '
+            f'list items {actual[1]}/{expected[1]}, lines {len(right)}/{len(left)}')
+    for index, pair in enumerate(zip(left, right), 1):
+        kinds = (line_kind(pair[0]), line_kind(pair[1]))
+        if kinds[0] != kinds[1] or (kinds[0] == 'blank' and pair[0] != pair[1]):
+            raise ValueError(
+                f'Translation line structure mismatch at line {index}: '
+                f'expected {kinds[0]}, got {kinds[1]}')
     return translated
+
+
+def peel(text):
+    lines = text.splitlines(keepends=True)
+    start, end = 0, len(lines)
+    while start < end and not lines[start].strip():
+        start += 1
+    while end > start and not lines[end - 1].strip():
+        end -= 1
+    return ''.join(lines[:start]), ''.join(lines[start:end]), ''.join(lines[end:])
+
+
+def restore(section, translated):
+    prefix, core, suffix = peel(section)
+    body = peel(unwrap(translated))[1]
+    if core.endswith('\n') and not body.endswith('\n'):
+        body += '\n'
+    elif body.endswith('\n') and not core.endswith('\n'):
+        body = body[:-1]
+    return ensure_structure(section, prefix + body + suffix)
 
 
 def request_translation(key, markdown):
     payload = json.dumps({
-        'model': 'deepseek-chat',
-        'temperature': 0,
-        'max_tokens': 8192,
-        'messages': [
-            {'role': 'system', 'content': SYSTEM},
-            {'role': 'user', 'content': markdown},
-        ],
+        'model': 'deepseek-chat', 'temperature': 0, 'max_tokens': 8192,
+        'messages': [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': markdown}],
     }).encode()
     request = urllib.request.Request(API, data=payload, method='POST', headers={
-        'Authorization': f'Bearer {key}',
-        'Content-Type': 'application/json',
-        'User-Agent': 'goose-2fa-notice-feed',
-    })
+        'Authorization': f'Bearer {key}', 'Content-Type': 'application/json',
+        'User-Agent': 'goose-2fa-notice-feed'})
     try:
         with urllib.request.urlopen(request, timeout=90) as response:
-            raw = response.read().decode('utf-8')
+            raw = response.read().decode()
     except urllib.error.HTTPError as error:
         detail = error.read().decode('utf-8', 'replace')[:300]
         raise RuntimeError(f'DeepSeek API returned HTTP {error.code}: {detail}') from None
@@ -132,8 +148,7 @@ def request_translation(key, markdown):
         raise RuntimeError(f'DeepSeek API request failed: {error.reason}') from None
     try:
         choice = json.loads(raw)['choices'][0]
-        reason = choice.get('finish_reason')
-        content = choice['message']['content']
+        content, reason = choice['message']['content'], choice.get('finish_reason')
     except (KeyError, IndexError, TypeError, json.JSONDecodeError) as error:
         raise RuntimeError(f'DeepSeek API returned an unexpected response: {error}') from None
     if reason != 'stop':
@@ -152,46 +167,43 @@ def translate(markdown, mock):
     if not mock and not key:
         raise RuntimeError('DEEPSEEK_API_KEY is not set')
     pieces = []
+    total = len(sections)
     for index, section in enumerate(sections, 1):
-        if mock:
-            pieces.append(ensure_structure(section, section))
+        core = peel(section)[1]
+        if mock or not core:
+            pieces.append(restore(section, core) if core else section)
             continue
         last = None
         for attempt in range(4):
             try:
-                piece = unwrap(request_translation(key, section))
-                pieces.append(ensure_structure(section, piece))
+                pieces.append(restore(section, request_translation(key, core)))
                 break
             except Exception as error:
                 last = error
                 if attempt == 3:
                     raise RuntimeError(
-                        f'CHANGELOG section {index}/{len(sections)}: DeepSeek translation '
-                        f'failed after 3 retries: {redact(last)}') from None
+                        f'CHANGELOG section {index}/{total}: failed after 3 retries: {redact(last)}') from None
                 time.sleep(2 ** attempt)
     return ensure_structure(markdown, ''.join(pieces))
 
 def render(version, date, markdown):
-    content = json.dumps(
-        {'schema': 1, 'version': version, 'date': date, 'markdown': markdown},
-        ensure_ascii=False, indent=2) + '\n'
+    content = json.dumps({'schema': 1, 'version': version, 'date': date, 'markdown': markdown},
+                         ensure_ascii=False, indent=2) + '\n'
     if len(content.encode()) > LIMIT:
         raise ValueError('The public update feed exceeds its size limit')
     return content
 
 
 def decide(content, previous):
-    if previous is None:
-        return 'publish'
     if previous == content:
         return 'unchanged'
     try:
-        saved = json.loads(previous)
+        saved = json.loads(previous) if previous else {}
     except json.JSONDecodeError:
-        return 'publish'
+        saved = {}
     saved_version = saved.get('version', '')
     new_version = json.loads(content)['version']
-    if (saved.get('schema') == 1 and re.fullmatch(VERSION, saved_version)
+    if (saved.get('schema') == 1 and re.fullmatch(VERSION, str(saved_version))
             and version_tuple(saved_version) > version_tuple(new_version)):
         return 'keep'
     return 'publish'
@@ -229,21 +241,16 @@ def publish(repo, content, version):
     loaded = published_text(repo)
     previous, sha = loaded if loaded else (None, None)
     action = decide(content, previous)
-    if action == 'unchanged':
-        print('Published update feed is already current.')
-        return
-    if action == 'keep':
-        print('Latest changelog version moved backwards; keep the published feed intact.')
+    if action != 'publish':
+        print('Published update feed is already current.' if action == 'unchanged'
+              else 'Latest changelog version moved backwards; keep the published feed intact.')
         return
     fresh = published_text(repo)
     fresh_sha = fresh[1] if fresh else None
     if fresh_sha != sha:
         raise RuntimeError('Published update feed changed while preparing it; retry')
-    payload = {
-        'message': f'chore: sync published update notices for v{version}',
-        'branch': 'main',
-        'content': base64.b64encode(content.encode()).decode(),
-    }
+    payload = {'message': f'chore: sync published update notices for v{version}', 'branch': 'main',
+               'content': base64.b64encode(content.encode()).decode()}
     if fresh_sha:
         payload['sha'] = fresh_sha
     api(repo, f'contents/{FEED}', payload)
@@ -253,22 +260,15 @@ def publish(repo, content, version):
 def shape(content, action):
     feed = json.loads(content)
     headings, items = structure(feed['markdown'])
-    print(json.dumps({
-        'decision': action,
-        'schema': feed['schema'],
-        'version': feed['version'],
-        'date': feed['date'],
-        'bytes': len(content.encode()),
-        'headings': headings,
-        'list_items': items,
-    }, ensure_ascii=False, indent=2))
+    print(json.dumps({'decision': action, 'schema': feed['schema'], 'version': feed['version'],
+                      'date': feed['date'], 'bytes': len(content.encode()), 'headings': headings,
+                      'list_items': items}, ensure_ascii=False, indent=2))
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Publish the changelog update-notice feed')
-    parser.add_argument('--dry-run', action='store_true', help='print the feed shape without writing')
-    parser.add_argument('--mock-translation', action='store_true',
-                        help='skip DeepSeek; only valid with --dry-run')
+    parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--mock-translation', action='store_true')
     return parser.parse_args()
 
 
