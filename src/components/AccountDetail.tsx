@@ -130,6 +130,7 @@ export function AccountDetail({
           placeholder={originalName}
           variant="heading"
           selectOnFocus
+          multiline
           onSave={(value) => {
             const next = !value || value === originalName ? "" : value;
             if (next !== (account.note ?? "")) onUpdateNote(account.id, next);
@@ -161,7 +162,7 @@ export function AccountDetail({
         className={`mb-2 flex cursor-pointer items-center justify-between rounded-cell border p-5 transition-all duration-150 ${
           copied
             ? "copied-flash border-copied-border"
-            : "bg-surface hover:bg-surface-hover active:scale-[0.98]"
+            : "bg-surface hover:border-accent hover:bg-accent-subtle active:scale-[0.98]"
         }`}
       >
         <span

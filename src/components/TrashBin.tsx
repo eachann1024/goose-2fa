@@ -72,7 +72,7 @@ export function TrashBin({ trash, onRestore, onPermanentDelete, onEmptyTrash, on
               </button>
               <button
                 onClick={() => setConfirmEmpty(false)}
-                className="rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-fg-muted transition-colors hover:bg-surface active:bg-surface-active"
+                className="rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-fg-muted transition-colors hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle"
               >
                 取消
               </button>
@@ -80,7 +80,7 @@ export function TrashBin({ trash, onRestore, onPermanentDelete, onEmptyTrash, on
           ) : (
             <button
               onClick={handleEmptyTrash}
-              className="rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-fg-faint transition-colors hover:bg-surface hover:text-fg-muted active:bg-surface-active"
+              className="rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-fg-faint transition-colors hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle"
             >
               清空
             </button>
