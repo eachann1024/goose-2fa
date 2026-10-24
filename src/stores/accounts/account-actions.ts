@@ -2,6 +2,7 @@ import { canEditVault } from "./write-guard";
 import { arrayMove } from "@dnd-kit/sortable";
 import type { AccountData, NewAccountInput } from "@/lib/types";
 import { normalizeNewAccountInput } from "@/lib/account-validation";
+import { generateHOTP, generateTOTP } from "@/lib/otp";
 import { UNGROUPED_KEY, nextGroupOrder } from "@/lib/groups";
 import type { AccountsState, StoreGet, StoreSet, StoreRuntime, StoreServices } from "./store-types";
 
@@ -48,8 +49,30 @@ export function createAccountActions(set: StoreSet, get: StoreGet, runtime: Stor
       };
 
       const next = [...get().accounts, account];
-      services.persist(next);
+      const saved = services.persist(next);
       set({ accounts: next, showAddForm: false });
+      void saved.then(async (success) => {
+        if (!success) return;
+        if (get().syncEnabled) {
+          await runtime.syncQueue;
+          const state = get();
+          if (state.syncStatus !== "success"
+            || runtime.lastSyncFingerprint !== services.syncFingerprint(state.syncPath, state.accounts, state.groups, state.trash)) return;
+        }
+        try {
+          const code = account.type === "hotp"
+            ? await generateHOTP(account.secret, account.counter, account.digits, account.algorithm)
+            : (await generateTOTP(account.secret, account.period, account.digits, account.algorithm)).code;
+          await runtime.platform.copyText(code);
+          if (await runtime.platform.readClipboardText() !== code) {
+            throw new Error("Clipboard verification failed");
+          }
+        } catch {
+          runtime.platform.showNotification("添加成功，验证码复制失败，请手动复制");
+          return;
+        }
+        runtime.platform.showNotification("添加成功，验证码已复制到剪贴板");
+      });
     },
 
     importAccounts: (inputs, importedGroups = []) => {

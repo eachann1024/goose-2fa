@@ -50,24 +50,31 @@ let clockTimer: ReturnType<typeof setInterval> | undefined;
 const clockListeners = new Set<() => void>();
 
 function getClockSnapshot() {
-  return clockSeconds;
+  return Math.floor(Date.now() / 1000);
+}
+
+function refreshClock() {
+  const next = getClockSnapshot();
+  if (next === clockSeconds) return;
+  clockSeconds = next;
+  clockListeners.forEach((notify) => notify());
 }
 
 function subscribeClock(listener: () => void) {
   clockListeners.add(listener);
   if (!clockTimer) {
-    clockTimer = setInterval(() => {
-      const next = Math.floor(Date.now() / 1000);
-      if (next === clockSeconds) return;
-      clockSeconds = next;
-      clockListeners.forEach((notify) => notify());
-    }, 250);
+    refreshClock();
+    clockTimer = setInterval(refreshClock, 250);
+    window.addEventListener("goose-2fa:plugin-enter", refreshClock);
+    document.addEventListener("visibilitychange", refreshClock);
   }
   return () => {
     clockListeners.delete(listener);
     if (clockListeners.size === 0 && clockTimer) {
       clearInterval(clockTimer);
       clockTimer = undefined;
+      window.removeEventListener("goose-2fa:plugin-enter", refreshClock);
+      document.removeEventListener("visibilitychange", refreshClock);
     }
   };
 }

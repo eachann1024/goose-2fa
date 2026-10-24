@@ -1,3 +1,4 @@
+import { useTimerReady } from "@/hooks/useTimerReady";
 import { RefreshCw, Check, Info } from "lucide-react";
 import { formatCode } from "@/lib/otp";
 import type { AccountData } from "@/lib/types";
@@ -28,6 +29,7 @@ export function CellBody({
   onDetailClick,
   onRefresh,
 }: CellBodyProps) {
+  const timerReady = useTimerReady(`${account.id}:${viewMode}`);
   const isTotp = account.type === "totp";
   const isLow = isTotp && remaining <= 5;
   const progress = isTotp ? remaining / period : 1;
@@ -69,7 +71,7 @@ export function CellBody({
               <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="3" className="stroke-border-soft" />
               <circle
                 cx="18" cy="18" r="15.5" fill="none" strokeWidth="3" strokeLinecap="round"
-                className={`timer-ring ${remaining === period ? "timer-reset" : ""} ${isLow ? "stroke-timer-low" : "stroke-accent"}`}
+                className={`timer-ring ${!timerReady || remaining === period ? "timer-reset" : ""} ${isLow ? "stroke-timer-low" : "stroke-accent"}`}
                 strokeDasharray={2 * Math.PI * 15.5}
                 style={{ strokeDashoffset: 2 * Math.PI * 15.5 * (1 - progress) }}
               />
@@ -159,7 +161,7 @@ export function CellBody({
         {isTotp && (
           <div className="mt-2 h-[2px] w-full overflow-hidden rounded-full bg-border">
             <div
-              className={`timer-bar h-full rounded-full ${remaining === period ? "timer-reset" : ""} ${isLow ? "bg-timer-low" : "bg-accent"}`}
+              className={`timer-bar h-full rounded-full ${!timerReady || remaining === period ? "timer-reset" : ""} ${isLow ? "bg-timer-low" : "bg-accent"}`}
               style={{ transform: `scaleX(${progress})` }}
             />
           </div>
@@ -229,7 +231,7 @@ export function CellBody({
       {isTotp && (
         <div className="mt-3 h-[4px] w-full overflow-hidden rounded-full bg-border-soft">
           <div
-            className={`timer-bar h-full rounded-full ${remaining === period ? "timer-reset" : ""} ${isLow ? "bg-timer-low" : "bg-accent"}`}
+            className={`timer-bar h-full rounded-full ${!timerReady || remaining === period ? "timer-reset" : ""} ${isLow ? "bg-timer-low" : "bg-accent"}`}
             style={{ transform: `scaleX(${progress})` }}
           />
         </div>
