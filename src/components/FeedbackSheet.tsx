@@ -4,7 +4,9 @@ import { celebrate } from "@/lib/celebrate";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { formControlVariants } from "@/components/ui/form-control";
+import { GripTextarea, gripPaint } from "@/components/ui/grip-textarea";
+import { cn } from "@/lib/utils";
 
 const endpoint = "https://feedback-api.cooool.top/api/feedback";
 const imageLimit = 20 * 1024 * 1024;
@@ -73,7 +75,11 @@ export function FeedbackSheet({ onClose }: { onClose: () => void }) {
           <DialogClose>关闭</DialogClose>
         </div>
         <form className="grid gap-3" onSubmit={submit}>
-          <Textarea
+          <GripTextarea
+            className={cn(formControlVariants(), "min-h-16")}
+            paint={gripPaint.brand}
+            gripLabel="反馈内容"
+            minHeight={64}
             placeholder="遇到的问题或想要的功能"
             value={message}
             maxLength={4000}
