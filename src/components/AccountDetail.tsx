@@ -31,7 +31,6 @@ export function AccountDetail({
   const { code, remaining, period } = useOtpCode(account);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const barReady = useTimerReady(account.id);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -58,14 +57,6 @@ export function AccountDetail({
     copyTimerRef.current = setTimeout(() => setCopied(false), 1200);
   }, [code, onCopy]);
 
-  const handleDelete = useCallback(() => {
-    if (!confirmingDelete) {
-      setConfirmingDelete(true);
-      return;
-    }
-    onDelete(account.id);
-  }, [confirmingDelete, account.id, onDelete]);
-
   const remark = account.remark ?? "";
 
   return (
@@ -83,6 +74,16 @@ export function AccountDetail({
         <span className="text-[15px] font-serif font-semibold tracking-tight text-fg">
           账户详情
         </span>
+        <div className="flex-1" />
+        <button
+          type="button"
+          onClick={() => onDelete(account.id)}
+          className="icon-control rounded-lg p-2 text-timer-low"
+          aria-label="删除账户"
+          title="删除账户"
+        >
+          <Trash2 size={17} />
+        </button>
       </div>
 
       <div className="mb-5">
@@ -182,37 +183,7 @@ export function AccountDetail({
         onUpdateGroup={onUpdateGroup}
       />
 
-      {/* 删除 */}
-      <div className="mt-auto">
-        {confirmingDelete ? (
-          <div className="flex items-center justify-between rounded-cell border border-danger-border bg-danger-faint px-4 py-3">
-            <span className="text-[12.5px] text-fg-muted">确认删除此账户？</span>
-            <div className="flex gap-2">
-              <button
-                onClick={handleDelete}
-                className="flex items-center gap-1 rounded-lg bg-timer-low px-3 py-1.5 text-[12px] font-medium text-danger-fg transition-[filter,transform] hover:brightness-95 active:translate-y-px active:brightness-90"
-              >
-                <Check size={12} />
-                确认
-              </button>
-              <button
-                onClick={() => setConfirmingDelete(false)}
-                className="rounded-lg border px-3 py-1.5 text-[12px] font-medium text-fg-muted transition-colors hover:bg-surface-hover active:bg-surface-active"
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={handleDelete}
-            className="flex w-full items-center justify-center gap-1.5 rounded-cell border py-2.5 text-[12.5px] text-fg-faint transition-colors hover:border-danger-border hover:bg-danger-faint hover:text-timer-low active:bg-danger-soft"
-          >
-            <Trash2 size={13} />
-            删除账户
-          </button>
-        )}
-      </div>
+
     </div>
   );
 }
