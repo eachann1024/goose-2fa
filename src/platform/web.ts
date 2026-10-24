@@ -2,7 +2,7 @@ import type { AccountData, VaultGroup } from "@/lib/types";
 import type { ClipboardImageData, PlatformAdapter } from "./types";
 
 const ACCOUNTS_KEY = "goose-2fa-accounts";
-const GROUPS_KEY = "goose-2fa-groups";
+const GROUPS_KEY = "goose-2fa-web-groups";
 
 function readJsonArray<T>(key: string): T[] {
   try {
