@@ -57,14 +57,10 @@ export function SegmentChip({
         tabs[nextIndex]?.click();
       }}
       className={`group/chip flex h-7 shrink-0 items-center gap-1.5 rounded-full text-left ${
-        lifted ? "transition-none" : "transition-[color,background-color,box-shadow,transform,padding]"
+        lifted ? "transition-none" : "transition-[color,background-color,box-shadow,transform]"
       } ${
-        // 默认与「全部」同宽；仅悬停/菜单聚焦时略扩右侧给「…」
-        hasMenu
-          ? lifted
-            ? "pl-3.5 pr-6"
-            : "pl-3.5 pr-3.5 group-hover/seg:pr-6 group-focus-within/seg:pr-6"
-          : "px-3.5"
+        // 有菜单的分组默认就留出「…」的位置，悬停时不再把右侧撑开
+        hasMenu ? "pl-3.5 pr-6" : "px-3.5"
       } ${
         lifted
           ? "bg-accent text-accent-fg"
