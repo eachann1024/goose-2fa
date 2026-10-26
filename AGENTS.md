@@ -1,3 +1,7 @@
+---
+{ goose-id: local-mvoymdh1mxx8edahtrh-goose-2fa%2FAGENTS.md }
+---
+
 ## 版本与代码组织
 
 - 每完成一个功能、修复或优化，将 `package.json` 补丁版本号加一且不复用已发布号；如 `1.7.99` → `1.7.100`，不因补丁号位数增加而进位.
