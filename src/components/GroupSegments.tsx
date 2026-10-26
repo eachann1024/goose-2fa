@@ -140,7 +140,7 @@ export function GroupSegments({
                       hasMenu
                       onClick={() => { setGroupError(""); onSelect(g.id); }}
                     />
-                    {/* 菜单仅在悬停/聚焦时露出，不常驻占位 */}
+                    {/* 图标位已由芯片右侧留白占住；图标本身仍在悬停/聚焦时露出 */}
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         className="absolute right-1 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center rounded text-fg-faint opacity-0 transition-[color,background-color,opacity] hover:bg-accent-subtle hover:text-accent focus-visible:opacity-100 group-hover/seg:opacity-100 group-focus-within/seg:opacity-100 data-[popup-open]:bg-accent-subtle data-[popup-open]:text-accent data-[popup-open]:opacity-100"
