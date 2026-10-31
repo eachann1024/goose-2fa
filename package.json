@@ -1,11 +1,11 @@
 {
   "name": "goose-2fa",
   "private": true,
-  "version": "0.1.46",
+  "version": "0.1.50",
   "type": "module",
   "scripts": {
     "dev": "vite --port 6002",
-    "build": "node scripts/typecheck.mjs -b && vite build -c vite.config.utools.ts --logLevel warn && node utools/scripts/build.js",
+    "build": "node scripts/typecheck.mjs -b && vite build -c vite.config.utools.ts --logLevel warn && node utools/scripts/build.js && node utools/scripts/package.js",
     "build:debug": "GOOSE_DEBUG=1 node scripts/typecheck.mjs -b && GOOSE_DEBUG=1 vite build -c vite.config.utools.ts && GOOSE_DEBUG=1 node utools/scripts/build.js",
     "mcp:serve": "bun run src/mcp/server.ts",
     "test": "vitest run",
@@ -34,6 +34,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@electron/asar": "^4.3.1",
     "@tailwindcss/vite": "^4.3.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

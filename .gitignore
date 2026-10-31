@@ -6,6 +6,7 @@ dist
 
 # 构建输出
 dist-utools/
+release/
 !CLAUDE.md
 !AGENTS.md
 
