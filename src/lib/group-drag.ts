@@ -14,18 +14,21 @@ export function groupDndId(id: string): string {
   return `${GROUP_DND_PREFIX}${id}`;
 }
 
-/** 分组按住更久才拖，避免一点就换位；账户仍用调用方传入的较短延迟。 */
+/** 鼠标按住移动即可拖动；触屏保留长按，避免滚动时误拖。 */
 export class HoldPointerSensor extends PointerSensor {
   constructor(props: PointerSensorProps) {
     const target = props.event.target;
     const isGroup = target instanceof Element && target.closest("[data-group-sortable]") != null;
+    const isMouse = "pointerType" in props.event && props.event.pointerType === "mouse";
     super({
       ...props,
       options: {
         ...props.options,
-        activationConstraint: isGroup
-          ? { delay: 400, tolerance: 6 }
-          : props.options.activationConstraint,
+        activationConstraint: isMouse
+          ? { distance: 6 }
+          : isGroup
+            ? { delay: 400, tolerance: 6 }
+            : props.options.activationConstraint,
       },
     });
   }

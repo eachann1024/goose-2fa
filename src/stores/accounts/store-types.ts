@@ -26,6 +26,7 @@ export interface AccountsState {
   editMode: boolean;
   viewMode: ViewMode;
   selectedGroup: string | null;
+  groupOrder: string[];
   accentColor: AccentColor;
   loadStatus: "idle" | "loading" | "ready" | "error";
   loadError: string | null;

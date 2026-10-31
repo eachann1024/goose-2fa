@@ -9,7 +9,6 @@ export function SegmentChip({
   muted,
   dropEnabled = false,
   dropGroupId,
-  hasMenu = false,
   hot = false,
   lifted = false,
 }: {
@@ -20,7 +19,6 @@ export function SegmentChip({
   muted?: boolean;
   dropEnabled?: boolean;
   dropGroupId?: string | null;
-  hasMenu?: boolean;
   hot?: boolean;
   lifted?: boolean;
 }) {
@@ -56,11 +54,8 @@ export function SegmentChip({
         tabs[nextIndex]?.focus();
         tabs[nextIndex]?.click();
       }}
-      className={`group/chip flex h-7 shrink-0 items-center gap-1.5 rounded-full text-left ${
+      className={`group/chip flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-left ${
         lifted ? "transition-none" : "transition-[color,background-color,box-shadow,transform]"
-      } ${
-        // 有菜单的分组默认就留出「…」的位置，悬停时不再把右侧撑开
-        hasMenu ? "pl-3.5 pr-6" : "px-3.5"
       } ${
         lifted
           ? "bg-accent text-accent-fg"

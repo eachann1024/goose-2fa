@@ -1,10 +1,12 @@
 import { canEditVault } from "./write-guard";
+import { normalizeGroupOrder } from "@/lib/groups";
 import { applyAccentColor, DEFAULT_ACCENT_COLOR, normalizeAccentColor, type AccentColor } from "@/lib/accent-color";
 import type { SyncPreferences } from "@/lib/data-transfer";
 import type { AccountsState, StoreGet, StoreSet, StoreServices, ViewMode } from "./store-types";
 
 export const VIEW_MODE_KEY = "goose-2fa-view";
 export const GROUP_KEY = "goose-2fa-group";
+const GROUP_ORDER_KEY = "goose-2fa-group-order";
 export const ACCENT_COLOR_KEY = "goose-2fa-accent";
 export const SYNC_ENABLED_KEY = "goose-2fa-sync-enabled";
 export const SYNC_PATH_KEY = "goose-2fa-sync-path";
@@ -33,18 +35,32 @@ export function loadAccentColor(): AccentColor {
   return normalizeAccentColor(localStorage.getItem(ACCENT_COLOR_KEY) ?? DEFAULT_ACCENT_COLOR);
 }
 
+export function loadGroupOrder(): string[] {
+  try {
+    return normalizeGroupOrder(JSON.parse(localStorage.getItem(GROUP_ORDER_KEY) ?? "[]"));
+  } catch {
+    return [];
+  }
+}
+
+export function saveGroupOrder(order: string[]): void {
+  localStorage.setItem(GROUP_ORDER_KEY, JSON.stringify(order));
+}
+
 export function snapshotPreferences(state: AccountsState): SyncPreferences {
   return {
     viewMode: state.viewMode,
     selectedGroup: state.selectedGroup,
+    groupOrder: state.groupOrder,
     accentColor: state.accentColor,
     isDark: state.isDark,
     isThemeLocked: state.isThemeLocked,
   };
 }
 
-export function applyFilePreferences(preferences: SyncPreferences): SyncPreferences {
-  const next = { ...preferences };
+export function applyFilePreferences(preferences: SyncPreferences): SyncPreferences & { groupOrder: string[] } {
+  const next = { ...preferences, groupOrder: normalizeGroupOrder(preferences.groupOrder) };
+  saveGroupOrder(next.groupOrder);
   if (!next.isThemeLocked) next.isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   localStorage.setItem(VIEW_MODE_KEY, next.viewMode);
   localStorage.setItem(ACCENT_COLOR_KEY, next.accentColor);

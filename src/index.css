@@ -234,10 +234,6 @@
     user-select: none !important;
   }
 
-  html[data-group-sorting] [data-slot="dropdown-menu-trigger"] {
-    display: none;
-  }
-
   @keyframes cell-lift {
     from {
       transform: scale(1);

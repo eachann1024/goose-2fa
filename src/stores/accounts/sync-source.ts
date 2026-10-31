@@ -88,7 +88,7 @@ export function createSyncSource(runtime: StoreRuntime, services: StoreServices,
     runtime.syncWriteVersion += 1;
     // 内存与文件一致时不要回写，否则会和另一端互相触发写入；计数器被抬高或回收站被清理时才需要纠正写回。
     runtime.lastSyncFingerprint = raised || trashPruned ? null : syncFingerprint(path, accounts, groups, trash, loadedPreferences);
-    const selectedGroup = resolveSelectedGroup(loadedPreferences.selectedGroup, groups, accounts);
+    const selectedGroup = resolveSelectedGroup(loadedPreferences.selectedGroup, groups, accounts, loadedPreferences.groupOrder);
     if (selectedGroup) localStorage.setItem(GROUP_KEY, selectedGroup);
     else localStorage.removeItem(GROUP_KEY);
     // 读取文件不再覆盖 uTools 缓存；只有清理过期回收站或抬高 HOTP 下限才纠正写回。
