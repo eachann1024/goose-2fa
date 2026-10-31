@@ -65,7 +65,7 @@ export function createLoadActions(set: StoreSet, get: StoreGet, runtime: StoreRu
         if (!fileMode && trash.length !== storedTrash.length) services.persistTrash(trash);
         const loaded = await services.loadFromStorage();
         const accounts = normalizeStoredAccounts(loaded, validGroupIds);
-        const selectedGroup = resolveSelectedGroup(get().selectedGroup, groups, accounts);
+        const selectedGroup = resolveSelectedGroup(get().selectedGroup, groups, accounts, get().groupOrder);
         if (selectedGroup) localStorage.setItem(GROUP_KEY, selectedGroup);
         else localStorage.removeItem(GROUP_KEY);
         runtime.skipLocalCache = fileMode;

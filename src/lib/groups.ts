@@ -5,6 +5,12 @@ export const UNGROUPED_KEY = "__ungrouped__";
 export const DEFAULT_GROUP_NAME = "默认";
 export const MAX_GROUP_NAME_LENGTH = 20;
 
+export function normalizeGroupOrder(value: unknown): string[] {
+  return Array.isArray(value)
+    ? [...new Set(value.filter((id): id is string => typeof id === "string" && id.length > 0))]
+    : [];
+}
+
 export function isUngrouped(account: AccountData): boolean {
   return !account.groupId;
 }
@@ -25,10 +31,11 @@ export interface GroupTally {
   order: number;
 }
 
-/** 按 order 排列用户分组，并附带账户数。 */
+/** 默认分组初始居首，手动排序优先，并附带账户数。 */
 export function buildGroupTallies(
   groups: VaultGroup[],
   accounts: AccountData[],
+  groupOrder: string[] = [],
 ): GroupTally[] {
   const counts = new Map<string, number>();
   let ungrouped = 0;
@@ -54,24 +61,28 @@ export function buildGroupTallies(
 
   // 尚无自定义分组时不单独出现；建过分组后以「默认」承接没归属的账户
   if (sorted.length > 0) {
-    tallies.push({
+    tallies.unshift({
       id: UNGROUPED_KEY,
       name: DEFAULT_GROUP_NAME,
       count: ungrouped,
-      order: Number.MAX_SAFE_INTEGER,
+      order: -1,
     });
   }
 
-  return tallies;
+  const positions = new Map(groupOrder.map((id, index) => [id, index]));
+  return tallies.sort((a, b) =>
+    (positions.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (positions.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+  );
 }
 
 /** 有分组时不再保留「全部」：优先第一个有账户的分组，否则第一个分组。 */
 export function fallbackSelectedGroup(
   groups: VaultGroup[],
   accounts: AccountData[],
+  groupOrder: string[] = [],
 ): string | null {
   if (groups.length === 0) return null;
-  const tallies = buildGroupTallies(groups, accounts);
+  const tallies = buildGroupTallies(groups, accounts, groupOrder);
   return (tallies.find((group) => group.count > 0) ?? tallies[0])?.id ?? null;
 }
 
@@ -85,12 +96,13 @@ export function resolveSelectedGroup(
   selected: string | null,
   groups: VaultGroup[],
   accounts: AccountData[],
+  groupOrder: string[] = [],
 ): string | null {
   if (selected === UNGROUPED_KEY) return groups.length > 0 ? UNGROUPED_KEY : null;
   if (selected && groups.some((group) => group.id === selected)) return selected;
   if (groups.length === 0 && accounts.length === 0) return selected;
   if (groups.length === 0) return null;
-  return fallbackSelectedGroup(groups, accounts);
+  return fallbackSelectedGroup(groups, accounts, groupOrder);
 }
 
 export function nextGroupOrder(groups: VaultGroup[]): number {

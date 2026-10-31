@@ -3,7 +3,7 @@ import type { PlatformAdapter } from "@/platform/types";
 import { applyAccentColor } from "@/lib/accent-color";
 import type { AccountsState, StoreRuntime, StoreServices, StoreAccess } from "./accounts/store-types";
 export type { SyncStatus, ThemeMode, ViewMode } from "./accounts/store-types";
-import { loadViewMode, loadSelectedGroup, loadAccentColor, SYNC_ENABLED_KEY, SYNC_PATH_KEY } from "./accounts/preferences";
+import { loadViewMode, loadSelectedGroup, loadGroupOrder, loadAccentColor, SYNC_ENABLED_KEY, SYNC_PATH_KEY } from "./accounts/preferences";
 import { createStorage } from "./accounts/storage";
 import { createSyncSource } from "./accounts/sync-source";
 import { createSyncWriter } from "./accounts/sync-write";
@@ -177,6 +177,7 @@ export const useAccounts = create<AccountsState>((set, get) => {
     editMode: false,
     viewMode: loadViewMode(),
     selectedGroup: loadSelectedGroup(),
+    groupOrder: loadGroupOrder(),
     accentColor: initialAccentColor,
     loadStatus: "idle",
     loadError: null,

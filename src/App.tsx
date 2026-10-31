@@ -30,6 +30,7 @@ export default function App() {
   const viewMode = useAccounts((s) => s.viewMode);
   const setViewMode = useAccounts((s) => s.setViewMode);
   const selectedGroup = useAccounts((s) => s.selectedGroup);
+  const groupOrder = useAccounts((s) => s.groupOrder);
   const setSelectedGroup = useAccounts((s) => s.setSelectedGroup);
   const accentColor = useAccounts((s) => s.accentColor);
   const loadStatus = useAccounts((s) => s.loadStatus);
@@ -283,6 +284,7 @@ export default function App() {
             searchQuery={searchQuery}
             viewMode={viewMode}
             selectedGroup={selectedGroup}
+            groupOrder={groupOrder}
             onSelectGroup={setSelectedGroup}
             onCreateGroup={createGroup}
             onRenameGroup={renameGroup}

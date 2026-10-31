@@ -1,9 +1,9 @@
 import { canEditVault } from "./write-guard";
 import { arrayMove } from "@dnd-kit/sortable";
 import type { VaultGroup } from "@/lib/types";
-import { UNGROUPED_KEY, nextGroupOrder, normalizeGroupName } from "@/lib/groups";
+import { UNGROUPED_KEY, buildGroupTallies, nextGroupOrder, normalizeGroupName } from "@/lib/groups";
 import type { AccountsState, StoreGet, StoreSet, StoreServices } from "./store-types";
-import { GROUP_KEY } from "./preferences";
+import { GROUP_KEY, saveGroupOrder } from "./preferences";
 
 export function createGroupActions(set: StoreSet, get: StoreGet, services: StoreServices): Pick<AccountsState, "createGroup" | "renameGroup" | "deleteGroup" | "reorderGroups"> {
   return {
@@ -40,7 +40,10 @@ export function createGroupActions(set: StoreSet, get: StoreGet, services: Store
 
     deleteGroup: (id) => {
       if (!canEditVault(get())) return;
+      if (id === UNGROUPED_KEY) return;
       const nextGroups = get().groups.filter((g) => g.id !== id);
+      const groupOrder = get().groupOrder.filter((groupId) => groupId !== id);
+      saveGroupOrder(groupOrder);
       const nextAccounts = get().accounts.map((a) =>
         a.groupId === id ? { ...a, groupId: null } : a,
       );
@@ -54,23 +57,23 @@ export function createGroupActions(set: StoreSet, get: StoreGet, services: Store
         get().selectedGroup === id ? null : get().selectedGroup;
       if (selectedGroup) localStorage.setItem(GROUP_KEY, selectedGroup);
       else localStorage.removeItem(GROUP_KEY);
-      set({ groups: nextGroups, accounts: nextAccounts, trash: nextTrash, selectedGroup });
+      set({ groups: nextGroups, groupOrder, accounts: nextAccounts, trash: nextTrash, selectedGroup });
     },
 
     reorderGroups: (activeId, overId) => {
       if (!canEditVault(get())) return;
       if (activeId === overId) return;
-      if (activeId === UNGROUPED_KEY || overId === UNGROUPED_KEY) return;
       const current = get().groups;
-      const sorted = [...current].sort(
-        (a, b) => a.order - b.order || a.name.localeCompare(b.name, "zh"),
-      );
+      const sorted = buildGroupTallies(current, get().accounts, get().groupOrder);
       const from = sorted.findIndex((g) => g.id === activeId);
       const to = sorted.findIndex((g) => g.id === overId);
       if (from === -1 || to === -1) return;
-      const moved = arrayMove(sorted, from, to).map((g, i) => ({ ...g, order: i }));
+      const groupOrder = arrayMove(sorted, from, to).map((group) => group.id);
+      const positions = new Map(groupOrder.map((id, index) => [id, index]));
+      const moved = current.map((group) => ({ ...group, order: positions.get(group.id)! }));
+      saveGroupOrder(groupOrder);
       void services.persistGroups(moved).then(() => services.scheduleSync());
-      set({ groups: moved });
+      set({ groups: moved, groupOrder });
     }
   };
 }

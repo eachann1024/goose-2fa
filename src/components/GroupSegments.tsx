@@ -1,20 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useDndContext } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy } from "@dnd-kit/sortable";
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
+import { GroupContextMenu } from "@/components/GroupContextMenu";
 import { GroupNameEditor } from "@/components/GroupNameEditor";
 import { SegmentChip } from "@/components/SegmentChip";
 import { SortableGroupChip } from "@/components/SortableGroupChip";
 import { groupDndId } from "@/lib/group-drag";
 import type { GroupTally } from "@/lib/groups";
 import { DEFAULT_GROUP_NAME, UNGROUPED_KEY } from "@/lib/groups";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 interface GroupSegmentsProps {
   groups: GroupTally[];
@@ -94,8 +88,7 @@ export function GroupSegments({
   };
 
   const userGroups = groups.filter((g) => g.id !== UNGROUPED_KEY);
-  const ungrouped = groups.find((g) => g.id === UNGROUPED_KEY);
-  const canDragGroups = userGroups.filter((g) => g.id !== renamingId).length > 1;
+  const canDragGroups = groups.filter((g) => g.id !== renamingId).length > 1;
   const showRail = userGroups.length > 0 || creating || totalCount > 0;
 
   if (!showRail) return null;
@@ -110,10 +103,10 @@ export function GroupSegments({
         aria-label="账户分组"
       >
         <SortableContext
-          items={userGroups.filter((g) => g.id !== renamingId).map((g) => groupDndId(g.id))}
+          items={groups.filter((g) => g.id !== renamingId).map((g) => groupDndId(g.id))}
           strategy={horizontalListSortingStrategy}
         >
-          {userGroups.map((g) =>
+          {groups.map((g) =>
             renamingId === g.id ? (
               <GroupNameEditor
                 key={g.id}
@@ -129,66 +122,36 @@ export function GroupSegments({
               />
             ) : (
               <SortableGroupChip key={g.id} id={g.id} canDrag={canDragGroups}>
-                {({ lifted, over }) => (
-                  <>
+                {({ lifted, over }) => {
+                  const chip = (
                     <SegmentChip
                       label={g.name}
                       count={g.count}
                       active={selected === g.id}
                       hot={dropEnabled && over}
                       lifted={lifted}
-                      hasMenu
+                      muted={g.id === UNGROUPED_KEY}
                       onClick={() => { setGroupError(""); onSelect(g.id); }}
                     />
-                    {/* 图标位已由芯片右侧留白占住；图标本身仍在悬停/聚焦时露出 */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        className="absolute right-1 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center rounded text-fg-faint opacity-0 transition-[color,background-color,opacity] hover:bg-accent-subtle hover:text-accent focus-visible:opacity-100 group-hover/seg:opacity-100 group-focus-within/seg:opacity-100 data-[popup-open]:bg-accent-subtle data-[popup-open]:text-accent data-[popup-open]:opacity-100"
-                        aria-label={`${g.name} 分组菜单`}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <MoreHorizontal size={10} strokeWidth={2} />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-36">
-                        <DropdownMenuItem
-                          className="gap-2 text-[12.5px]"
-                          onClick={() => {
-                            setGroupError("");
-                            setRenamingId(g.id);
-                            setRenameValue(g.name);
-                          }}
-                        >
-                          <Pencil size={13} />
-                          重命名
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="gap-2 text-[12.5px] text-timer-low"
-                          onClick={() => setDeleteCandidate({ id: g.id, name: g.name, count: g.count })}
-                        >
-                          <Trash2 size={13} />
-                          删除分组
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </>
-                )}
+                  );
+                  if (g.id === UNGROUPED_KEY) return chip;
+                  return <GroupContextMenu
+                    name={g.name}
+                    disabled={sortingGroups || dropEnabled}
+                    onRename={() => {
+                      setGroupError("");
+                      setRenamingId(g.id);
+                      setRenameValue(g.name);
+                    }}
+                    onDelete={() => setDeleteCandidate({ id: g.id, name: g.name, count: g.count })}
+                  >
+                    {chip}
+                  </GroupContextMenu>;
+                }}
               </SortableGroupChip>
             ),
           )}
         </SortableContext>
-
-        {ungrouped && (
-          <SegmentChip
-            label={ungrouped.name}
-            count={ungrouped.count}
-            active={selected === UNGROUPED_KEY}
-            dropEnabled={dropEnabled}
-            dropGroupId={null}
-            onClick={() => { setGroupError(""); onSelect(UNGROUPED_KEY); }}
-            muted
-          />
-        )}
 
         {creating ? (
           <GroupNameEditor

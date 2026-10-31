@@ -23,6 +23,7 @@ import {
   buildGroupTallies,
   filterByGroup,
   resolveSelectedGroup,
+  UNGROUPED_KEY,
 } from "@/lib/groups";
 import { filterAccounts } from "@/lib/search";
 import type { AccountData, VaultGroup } from "@/lib/types";
@@ -34,6 +35,7 @@ interface CodeGridProps {
   searchQuery: string;
   viewMode: ViewMode;
   selectedGroup: string | null;
+  groupOrder?: string[];
   onSelectGroup: (groupId: string | null) => void;
   onCreateGroup: (name: string) => string | null;
   onRenameGroup: (id: string, name: string) => boolean;
@@ -55,6 +57,7 @@ export function CodeGrid({
   searchQuery,
   viewMode,
   selectedGroup,
+  groupOrder,
   onSelectGroup,
   onCreateGroup,
   onRenameGroup,
@@ -78,8 +81,8 @@ export function CodeGrid({
   );
 
   const effectiveGroup = useMemo(
-    () => resolveSelectedGroup(selectedGroup, groups, accounts),
-    [selectedGroup, groups, accounts],
+    () => resolveSelectedGroup(selectedGroup, groups, accounts, groupOrder),
+    [selectedGroup, groups, accounts, groupOrder],
   );
 
   useEffect(() => {
@@ -90,8 +93,8 @@ export function CodeGrid({
 
   // 一级计数基于全量；搜索时仍显示全局结构，内容区用搜索结果
   const tallies = useMemo(
-    () => buildGroupTallies(groups, accounts),
-    [groups, accounts],
+    () => buildGroupTallies(groups, accounts, groupOrder),
+    [groups, accounts, groupOrder],
   );
 
   const scoped = useMemo(() => {
@@ -151,7 +154,8 @@ export function CodeGrid({
         return;
       }
       if (over?.data.current?.type === "group") {
-        onMoveToGroup(accountId, (over.data.current.groupId as string | null) ?? null);
+        const groupId = (over.data.current.groupId as string | null) ?? null;
+        onMoveToGroup(accountId, groupId === UNGROUPED_KEY ? null : groupId);
       } else if (over?.data.current?.type === "account") {
         const overAccountId = over.data.current.accountId;
         if (typeof overAccountId === "string" && accountId !== overAccountId) {

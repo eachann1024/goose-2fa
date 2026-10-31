@@ -2,10 +2,12 @@ import { normalizeStoredAccounts } from "../account-validation";
 import type { AccountData, VaultGroup } from "../types";
 import { normalizeGroups } from "./normalization";
 import { ACCENT_COLORS, type AccentColor } from "../accent-color";
+import { normalizeGroupOrder } from "../groups";
 
 export interface SyncPreferences {
   viewMode: "grid" | "compact" | "list";
   selectedGroup: string | null;
+  groupOrder?: string[];
   accentColor: AccentColor;
   isDark: boolean;
   isThemeLocked: boolean;
@@ -21,6 +23,7 @@ function parsePreferences(value: unknown): SyncPreferences | null {
   return {
     viewMode: raw.viewMode as SyncPreferences["viewMode"],
     selectedGroup: raw.selectedGroup as string | null,
+    groupOrder: normalizeGroupOrder(raw.groupOrder),
     accentColor: raw.accentColor as AccentColor,
     isDark: raw.isDark,
     isThemeLocked: raw.isThemeLocked,
