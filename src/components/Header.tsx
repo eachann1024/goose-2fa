@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, type CSSProperties, type ReactNode } from "react";
-import { Search, Plus, X, MoreHorizontal, Moon, Sun, Monitor, ArrowDownUp, Trash2, LayoutGrid, List, Columns3, MessageSquare } from "lucide-react";
+import { Search, Plus, X, MoreHorizontal, Moon, Sun, Monitor, ArrowDownUp, Trash2, LayoutGrid, List, Columns3 } from "lucide-react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupButton } from "@/components/ui/input-group";
 import type { ThemeMode, ViewMode } from "@/stores/useAccounts";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { UpdateNotifications } from "./UpdateNotifications";
+import { FeedbackEntry } from "@/components/FeedbackEntry";
 
 interface HeaderProps {
   hasAccounts: boolean;
@@ -214,15 +215,7 @@ export function Header({
         </button>
       )}
 
-      <button
-        onClick={onFeedback}
-        className="icon-control rounded-lg p-2 text-fg-muted"
-        aria-label="反馈"
-        title="反馈"
-        data-feedback-entry
-      >
-        <MessageSquare size={17} />
-      </button>
+      <FeedbackEntry onFeedback={onFeedback} />
 
       <UpdateNotifications />
 

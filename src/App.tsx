@@ -9,9 +9,10 @@ import { DataTransfer } from "@/components/DataTransfer";
 import { TrashBin } from "@/components/TrashBin";
 import { AccountDetail } from "@/components/AccountDetail";
 import { QuickCode } from "@/components/QuickCode";
-import { AlertCircle, LoaderCircle, RefreshCw } from "lucide-react";
+import { VaultLoadState } from "@/components/VaultLoadState";
 import type { AccountData } from "@/lib/types";
-import type { PluginEnterDetail } from "@/platform/types";
+import { checkFeedbackUnread } from "@/lib/feedback";
+import { useHostTheme, usePluginSession } from "@/lib/use-host-session";
 
 type ViewState = "idle" | "opening" | "open" | "closing";
 
@@ -76,53 +77,21 @@ export default function App() {
     document.documentElement.classList.toggle("dark", useAccounts.getState().isDark);
   }, [load]);
 
-  useEffect(() => {
-    // uTools (Electron) 环境：监听 nativeTheme 派发的主题变化事件
-    const handleThemeChanged = (e: CustomEvent<{ isDark: boolean }>) => {
-      if (localStorage.getItem("goose-2fa-dark") === null) {
-        syncSystemDark(e.detail.isDark);
-      }
-    };
-    window.addEventListener("goose-2fa:theme-changed", handleThemeChanged as EventListener);
-
-    // 浏览器开发环境兜底：matchMedia
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const mqHandler = (e: MediaQueryListEvent) => {
-      if (localStorage.getItem("goose-2fa-dark") === null) {
-        syncSystemDark(e.matches);
-      }
-    };
-    mq.addEventListener("change", mqHandler);
-
-    return () => {
-      window.removeEventListener("goose-2fa:theme-changed", handleThemeChanged as EventListener);
-      mq.removeEventListener("change", mqHandler);
-    };
-  }, [syncSystemDark]);
+  useHostTheme(syncSystemDark);
+  usePluginSession(load, setSearchQuery, setQuickQuery, setQuickMode);
 
   useEffect(() => {
-    const handleEnter = (e: Event) => {
-      const detail = (e as CustomEvent<PluginEnterDetail>).detail;
-      load();
-      if (detail?.code === "quick") {
-        const raw = (detail?.payload ?? "").trim();
-        const query = raw.replace(/^(2fa|otp|验证码)\s+/i, "").trim();
-        setQuickQuery(query);
-        setQuickMode(true);
-      } else {
-        setQuickQuery("");
-        setQuickMode(false);
-        setSearchQuery("");
-      }
-    };
-    const handleOut = () => setQuickMode(false);
-    window.addEventListener("goose-2fa:plugin-enter", handleEnter);
-    window.addEventListener("goose-2fa:plugin-out", handleOut);
+    const tick = () => { void checkFeedbackUnread("2fa"); };
+    tick();
+    const timer = setInterval(tick, 60000);
+    window.addEventListener("focus", tick);
+    document.addEventListener("visibilitychange", tick);
     return () => {
-      window.removeEventListener("goose-2fa:plugin-enter", handleEnter);
-      window.removeEventListener("goose-2fa:plugin-out", handleOut);
+      clearInterval(timer);
+      window.removeEventListener("focus", tick);
+      document.removeEventListener("visibilitychange", tick);
     };
-  }, [load, setSearchQuery]);
+  }, []);
 
   const handleCopy = (_text: string) => {};
 
@@ -324,47 +293,5 @@ export default function App() {
       )}
       {feedbackOpen ? <FeedbackSheet onClose={() => setFeedbackOpen(false)} /> : null}
     </div>
-  );
-}
-
-function VaultLoadState({
-  status,
-  message,
-  onRetry,
-}: {
-  status: "idle" | "loading" | "error";
-  message: string | null;
-  onRetry: () => Promise<void>;
-}) {
-  const failed = status === "error";
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-bg px-8 text-center">
-      <div
-        className={`flex h-11 w-11 items-center justify-center rounded-cell ${
-          failed ? "bg-danger-soft text-timer-low" : "bg-accent-subtle text-accent"
-        }`}
-        aria-hidden="true"
-      >
-        {failed ? <AlertCircle size={21} /> : <LoaderCircle className="animate-spin" size={21} />}
-      </div>
-      <h1 className="mt-4 text-[15px] font-semibold text-fg">
-        {failed ? "账户读取失败" : "正在读取账户"}
-      </h1>
-      <p className="mt-1.5 max-w-[280px] text-[12.5px] leading-relaxed text-fg-muted" role={failed ? "alert" : undefined}>
-        {failed ? message : "请稍候，加载完成前不会写入或覆盖数据。"}
-      </p>
-      {failed && (
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          <button
-            type="button"
-            onClick={() => void onRetry()}
-            className="primary-control flex min-h-9 items-center gap-1.5 rounded-lg bg-accent px-3.5 text-[12.5px] font-medium text-accent-fg"
-          >
-            <RefreshCw size={13} />
-            重试
-          </button>
-        </div>
-      )}
-    </main>
   );
 }
