@@ -4,7 +4,7 @@ import { Popover } from "@base-ui/react/popover";
 import { useUpdateNotices } from "@/hooks/useUpdateNotices";
 import { dismissNotesPromo, isNotesPromoDismissed } from "@/lib/update-notice-storage";
 
-const NOTES_SITE = "https://note.cooool.top/";
+const NOTES_SITE = "https://block.cooool.top/?lang=zh";
 
 function openNotesSite(event: MouseEvent<HTMLAnchorElement>) {
   const openExternal = (window as Window & {
