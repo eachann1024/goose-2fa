@@ -1,7 +1,8 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { memo, useState, useCallback, useEffect, useRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useOtpCode } from "@/hooks/useOtpCode";
+import { generateTOTP } from "@/lib/otp";
 import type { AccountData } from "@/lib/types";
 import type { ViewMode } from "@/stores/useAccounts";
 
@@ -14,7 +15,6 @@ interface CodeCellProps {
   onCopy: (text: string) => boolean | Promise<boolean>;
   onDetail: (account: AccountData) => void;
   onIncrement: (id: string) => void;
-  index: number;
   viewMode: ViewMode;
   sortable: boolean;
   selectionMode?: boolean;
@@ -22,23 +22,17 @@ interface CodeCellProps {
   onToggleSelect?: (id: string) => void;
 }
 
-export function CodeCell({
+export const CodeCell = memo(function CodeCell({
   account,
   onCopy,
   onDetail,
   onIncrement,
-  index: _index,
   viewMode,
   sortable,
   selectionMode,
   selected,
   onToggleSelect,
 }: CodeCellProps) {
-  const { code, remaining, period } = useOtpCode(account);
-  const [copied, setCopied] = useState(false);
-  const [copyError, setCopyError] = useState(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
   const {
     attributes,
     listeners,
@@ -58,21 +52,86 @@ export function CodeCell({
     },
   });
 
-  useEffect(() => () => clearTimeout(timeoutRef.current), []);
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    ...(isDragging ? { opacity: 0.4 } : {}),
+  };
+
+  return (
+    <LiveCodeCell
+      account={account}
+      onCopy={onCopy}
+      onDetail={onDetail}
+      onIncrement={onIncrement}
+      viewMode={viewMode}
+      selectionMode={selectionMode}
+      selected={selected}
+      onToggleSelect={onToggleSelect}
+      nodeRef={setNodeRef}
+      activatorRef={setActivatorNodeRef}
+      activatorProps={sortable ? { ...attributes, ...listeners } : undefined}
+      style={style}
+      isDragging={isDragging}
+      isSorting={isSorting}
+    />
+  );
+});
+
+interface LiveCodeCellProps extends Omit<CodeCellProps, "sortable"> {
+  nodeRef: React.Ref<HTMLDivElement>;
+  activatorRef: React.Ref<HTMLButtonElement>;
+  activatorProps?: React.ButtonHTMLAttributes<HTMLButtonElement>;
+  style: React.CSSProperties;
+  isDragging: boolean;
+  isSorting: boolean;
+}
+
+function LiveCodeCell({
+  account, onCopy, onDetail, onIncrement, viewMode, nodeRef,
+  activatorRef, activatorProps, style, isDragging, isSorting,
+  selectionMode, selected, onToggleSelect,
+}: LiveCodeCellProps) {
+  const { code, remaining, period } = useOtpCode(account);
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const copyGeneration = useRef(0);
+
+  useEffect(() => {
+    setCopied(false);
+    setCopyError(false);
+    return () => {
+      copyGeneration.current += 1;
+      clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   const handleCopy = useCallback(async () => {
+    if (!/^\d+$/.test(code)) return;
+    const generation = ++copyGeneration.current;
+    clearTimeout(timeoutRef.current);
+    setCopied(false);
     setCopyError(false);
-    const success = await onCopy(code);
+    let copyCode = code;
+    if (account.type === "totp") {
+      try {
+        copyCode = (await generateTOTP(account.secret, account.period || 30, account.digits, account.algorithm)).code;
+      } catch {
+        copyCode = "ERROR";
+      }
+    }
+    if (generation !== copyGeneration.current) return;
+    const success = copyCode !== "------" && copyCode !== "ERROR" && await onCopy(copyCode);
+    if (generation !== copyGeneration.current) return;
     if (!success) {
       setCopyError(true);
-      clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(() => setCopyError(false), 1800);
       return;
     }
     setCopied(true);
-    clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => setCopied(false), 1200);
-  }, [code, onCopy]);
+  }, [account, code, onCopy]);
 
   const handleDetailClick = useCallback(
     (e: React.MouseEvent) => {
@@ -94,17 +153,10 @@ export function CodeCell({
     [account.id, onIncrement],
   );
 
-  // 拖动源：拖起后留在原位作半透明"空位"，真正跟手的视觉由 DragOverlay 接管。
-  const style: React.CSSProperties = {
-    transform: CSS.Translate.toString(transform),
-    transition,
-    ...(isDragging ? { opacity: 0.4 } : {}),
-  };
-
   return (
     <AccountContextMenu account={account} disabled={isDragging || Boolean(selectionMode)} onCopy={handleCopy} onDetail={onDetail}>
       <CellShell
-        ref={setNodeRef}
+        ref={nodeRef}
         style={style}
         viewMode={viewMode}
         copied={copied}
@@ -118,8 +170,8 @@ export function CodeCell({
         selected={Boolean(selectionMode && selected)}
         pressed={selectionMode ? Boolean(selected) : undefined}
         interactive
-        activatorRef={setActivatorNodeRef}
-        activatorProps={sortable ? { ...attributes, ...listeners } : undefined}
+        activatorRef={activatorRef}
+        activatorProps={activatorProps}
       >
         <CellBody
           account={account}

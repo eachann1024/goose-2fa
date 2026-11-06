@@ -207,6 +207,7 @@ export const useAccounts = create<AccountsState>((set, get) => {
     addAccount: createAccountActionsInstance.addAccount,
     importAccounts: createAccountActionsInstance.importAccounts,
     updateNote: createAccountActionsInstance.updateNote,
+    updateSecret: createAccountActionsInstance.updateSecret,
     updateRemark: createAccountActionsInstance.updateRemark,
     updateAccountGroup: createAccountActionsInstance.updateAccountGroup,
     moveAccounts: createAccountActionsInstance.moveAccounts,

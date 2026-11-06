@@ -9,11 +9,17 @@ interface OtpResult {
 }
 
 export function useOtpCode(account: AccountData): OtpResult {
-  const [code, setCode] = useState("------");
-  const nowSeconds = useSyncExternalStore(subscribeClock, getClockSnapshot, getClockSnapshot);
+  const [result, setResult] = useState<{ key: string; code: string } | null>(null);
+  const isTotp = account.type === "totp";
+  const nowSeconds = useSyncExternalStore(
+    isTotp ? subscribeClock : subscribeNever,
+    isTotp ? getClockSnapshot : getStaticSnapshot,
+    isTotp ? getClockSnapshot : getStaticSnapshot,
+  );
   const period = account.period || 30;
   const step = account.type === "totp" ? Math.floor(nowSeconds / period) : account.counter;
   const remaining = account.type === "totp" ? period - (nowSeconds % period) : -1;
+  const key = JSON.stringify([account.secret, account.type, period, account.digits, account.algorithm, step]);
 
   useEffect(() => {
     let active = true;
@@ -22,9 +28,9 @@ export function useOtpCode(account: AccountData): OtpResult {
         const next = account.type === "hotp"
           ? await generateHOTP(account.secret, account.counter, account.digits, account.algorithm)
           : (await generateTOTP(account.secret, period, account.digits, account.algorithm)).code;
-        if (active) setCode(next);
+        if (active) setResult({ key, code: next });
       } catch {
-        if (active) setCode("ERROR");
+        if (active) setResult({ key, code: "ERROR" });
       }
     };
     void generate();
@@ -40,14 +46,23 @@ export function useOtpCode(account: AccountData): OtpResult {
     account.counter,
     period,
     step,
+    key,
   ]);
 
-  return { code, remaining, period };
+  return { code: result?.key === key ? result.code : "------", remaining, period };
 }
 
 let clockSeconds = Math.floor(Date.now() / 1000);
 let clockTimer: ReturnType<typeof setInterval> | undefined;
 const clockListeners = new Set<() => void>();
+
+function subscribeNever() {
+  return () => {};
+}
+
+function getStaticSnapshot() {
+  return 0;
+}
 
 function getClockSnapshot() {
   return Math.floor(Date.now() / 1000);

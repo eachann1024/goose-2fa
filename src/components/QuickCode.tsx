@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CornerDownLeft, Search } from "lucide-react";
 import { usePlatform } from "@/platform/context";
 import { useOtpCode } from "@/hooks/useOtpCode";
@@ -22,6 +22,8 @@ export function QuickCode({ accounts, initialQuery, onIncrement }: QuickCodeProp
   const pickingRef = useRef(false);
 
   const filtered = useMemo(() => filterAccounts(accounts, query), [accounts, query]);
+
+  useEffect(() => setQuery(initialQuery), [initialQuery]);
 
   useEffect(() => {
     platform.setSubInput?.(setQuery, "搜索账户名、发行方或备注", initialQuery);
@@ -111,7 +113,7 @@ export function QuickCode({ accounts, initialQuery, onIncrement }: QuickCodeProp
             account={account}
             index={index}
             selected={index === selectedIndex}
-            onHover={() => setSelectedIndex(index)}
+            onHover={setSelectedIndex}
             onPick={pick}
           />
         ))}
@@ -128,7 +130,7 @@ export function QuickCode({ accounts, initialQuery, onIncrement }: QuickCodeProp
   );
 }
 
-function QuickRow({
+const QuickRow = memo(function QuickRow({
   account,
   index,
   selected,
@@ -138,7 +140,7 @@ function QuickRow({
   account: AccountData;
   index: number;
   selected: boolean;
-  onHover: () => void;
+  onHover: (index: number) => void;
   onPick: (account: AccountData, code: string) => Promise<void>;
 }) {
   const { code, remaining, period } = useOtpCode(account);
@@ -156,7 +158,7 @@ function QuickRow({
       data-row-index={index}
       data-code={code}
       onClick={() => void onPick(account, code)}
-      onMouseEnter={onHover}
+      onMouseEnter={() => onHover(index)}
       className={`flex h-14 w-full items-center gap-3 px-4 text-left transition-colors active:bg-surface-active ${selected ? "bg-accent-subtle" : "hover:bg-accent-subtle"}`}
     >
       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${selected ? "bg-accent text-accent-fg" : "bg-accent-subtle text-accent"}`} aria-hidden="true">
@@ -179,7 +181,7 @@ function QuickRow({
       )}
     </button>
   );
-}
+});
 
 function QuickEmpty({ title, hint }: { title: string; hint: string }) {
   return (

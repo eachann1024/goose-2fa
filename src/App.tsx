@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { Activity, useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useAccounts } from "@/stores/useAccounts";
 import { usePlatform } from "@/platform/context";
 import { Header } from "@/components/Header";
@@ -100,8 +100,10 @@ export default function App() {
   }, []);
 
   const dismissNotice = useCallback(() => setNotice(null), [setNotice]);
-
-  const handleCopy = (_text: string) => {};
+  const handleCopy = useCallback((_text: string) => {}, []);
+  const handleAdd = useCallback(() => { setAddFormAction(undefined); setShowAddForm(true); }, [setShowAddForm]);
+  const handleClipboardImport = useCallback(() => { setAddFormAction("clipboard"); setShowAddForm(true); }, [setShowAddForm]);
+  const handleScreenCapture = useCallback(() => { setAddFormAction("capture"); setShowAddForm(true); }, [setShowAddForm]);
 
   const handleDetailCopy = async (text: string) => {
     try {
@@ -126,12 +128,12 @@ export default function App() {
     timerRef.current = setTimeout(() => {
       setViewState("idle");
       setDetailAccount(null);
-      focusReturnRef.current?.focus();
     }, transitionDelay("close"));
   }, []);
 
   const handleDeleteFromDetail = useCallback((id: string) => {
     clearTimeout(timerRef.current);
+    focusReturnRef.current = null;
     // 趁详情还盖着列表时先删（列表重排、本地写入、同步都在这一刻完成），
     // 等这帧画完再起返回动画，避免重活和动画挤在一起掉帧、列表在眼前跳动。
     const latest = useAccounts.getState().accounts.find((a) => a.id === id);
@@ -155,73 +157,42 @@ export default function App() {
     return accounts.find((a) => a.id === detailAccount.id) ?? detailAccount;
   }, [accounts, detailAccount]);
 
-  if (loadStatus !== "ready") {
-    return (
-      <VaultLoadState
-        status={loadStatus}
-        message={loadError}
-        onRetry={load}
-      />
-    );
-  }
-
-  if (quickMode) {
-    return (
-      <QuickCode
-        accounts={accounts}
-        initialQuery={quickQuery}
-        onIncrement={incrementCounter}
-      />
-    );
-  }
-
-  if (showTrash) {
-    return (
-      <div className="flex min-h-screen flex-col">
-        <TrashBin
-          trash={trash}
-          onRestore={restoreAccount}
-          onPermanentDelete={permanentlyDelete}
-          onEmptyTrash={emptyTrash}
-          onBack={() => setShowTrash(false)}
-        />
-      </div>
-    );
-  }
-
-  if (showDataTransfer) {
-    return (
-      <div className="flex min-h-screen flex-col">
-        <DataTransfer
-          accounts={accounts}
-          groups={groups}
-          onImport={importAccounts}
-          onCancel={() => setShowDataTransfer(false)}
-        />
-        <Toast notice={notice} onDismiss={dismissNotice} raised={editMode} />
-      </div>
-    );
-  }
-
-  if (showAddForm) {
-    return (
-      <div className="flex min-h-screen flex-col">
-        <AddAccount
-          onAdd={addAccount}
-          onBatchAdd={importAccounts}
-          onCancel={() => { setShowAddForm(false); setAddFormAction(undefined); }}
-          initialAction={addFormAction}
-        />
-        <Toast notice={notice} onDismiss={dismissNotice} raised={editMode} />
-      </div>
-    );
-  }
+  const showMain = loadStatus === "ready" && !quickMode && !showTrash && !showDataTransfer && !showAddForm;
+  useLayoutEffect(() => {
+    if (showMain && viewState === "idle" && focusReturnRef.current) {
+      focusReturnRef.current.focus();
+      focusReturnRef.current = null;
+    }
+  }, [showMain, viewState]);
 
   const frontClass = listFaceClass(viewState);
 
   return (
+    <>
+    {loadStatus !== "ready" ? (
+      <VaultLoadState status={loadStatus} message={loadError} onRetry={load} />
+    ) : quickMode ? (
+      <QuickCode accounts={accounts} initialQuery={quickQuery} onIncrement={incrementCounter} />
+    ) : showTrash ? (
+      <div className="flex min-h-screen flex-col">
+        <TrashBin trash={trash} onRestore={restoreAccount} onPermanentDelete={permanentlyDelete}
+          onEmptyTrash={emptyTrash} onBack={() => setShowTrash(false)} />
+      </div>
+    ) : showDataTransfer ? (
+      <div className="flex min-h-screen flex-col">
+        <DataTransfer accounts={accounts} groups={groups} onImport={importAccounts}
+          onCancel={() => setShowDataTransfer(false)} />
+      </div>
+    ) : showAddForm ? (
+      <div className="flex min-h-screen flex-col">
+        <AddAccount onAdd={addAccount} onBatchAdd={importAccounts}
+          onCancel={() => { setShowAddForm(false); setAddFormAction(undefined); }} initialAction={addFormAction} />
+      </div>
+    ) : null}
+    <Activity mode={showMain ? "visible" : "hidden"}>
     <div className="view-scene">
       {/* 正面：主界面 */}
+      <Activity mode={viewState === "open" ? "hidden" : "visible"}>
       <div
         className={frontClass}
         inert={viewState === "open" ? true : undefined}
@@ -234,7 +205,7 @@ export default function App() {
             onSearchChange={setSearchQuery}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
-            onAdd={() => { setAddFormAction(undefined); setShowAddForm(true); }}
+            onAdd={handleAdd}
             batchMode={editMode}
             onBatchManage={() => { setSearchQuery(""); setEditMode(true); }}
             onManageData={() => setShowDataTransfer(true)}
@@ -263,9 +234,9 @@ export default function App() {
             onReorder={reorderAccounts}
             onReorderGroups={reorderGroups}
             onMoveToGroup={updateAccountGroup}
-            onAdd={() => { setAddFormAction(undefined); setShowAddForm(true); }}
-            onClipboardImport={() => { setAddFormAction("clipboard"); setShowAddForm(true); }}
-            onScreenCapture={() => { setAddFormAction("capture"); setShowAddForm(true); }}
+            onAdd={handleAdd}
+            onClipboardImport={handleClipboardImport}
+            onScreenCapture={handleScreenCapture}
             batchMode={editMode}
             onExitBatch={() => setEditMode(false)}
             onRemoveMany={removeAccounts}
@@ -273,6 +244,7 @@ export default function App() {
           />
         </div>
       </div>
+      </Activity>
 
       <DetailLayer
         account={liveDetail}
@@ -286,7 +258,9 @@ export default function App() {
         onUpdateGroup={updateAccountGroup}
       />
       {feedbackOpen ? <FeedbackSheet onClose={() => setFeedbackOpen(false)} /> : null}
-      <Toast notice={notice} onDismiss={dismissNotice} raised={editMode} />
     </div>
+    </Activity>
+    {loadStatus === "ready" && !quickMode && !showTrash && <Toast notice={notice} onDismiss={dismissNotice} raised={editMode} />}
+    </>
   );
 }

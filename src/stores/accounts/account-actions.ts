@@ -1,12 +1,13 @@
 import { canEditVault } from "./write-guard";
 import { arrayMove } from "@dnd-kit/sortable";
 import type { AccountData, NewAccountInput } from "@/lib/types";
-import { normalizeNewAccountInput } from "@/lib/account-validation";
+import { normalizeBase32Secret, normalizeNewAccountInput } from "@/lib/account-validation";
+import { parseSecretReplacement } from "@/lib/secret-input";
 import { generateHOTP, generateTOTP } from "@/lib/otp";
 import { DEFAULT_GROUP_NAME, UNGROUPED_KEY, nextGroupOrder } from "@/lib/groups";
 import type { AccountsState, Notice, StoreGet, StoreSet, StoreRuntime, StoreServices } from "./store-types";
 
-export function createAccountActions(set: StoreSet, get: StoreGet, runtime: StoreRuntime, services: StoreServices): Pick<AccountsState, "save" | "reorderAccounts" | "addAccount" | "importAccounts" | "updateNote" | "updateRemark" | "updateAccountGroup" | "moveAccounts" | "incrementCounter"> {
+export function createAccountActions(set: StoreSet, get: StoreGet, runtime: StoreRuntime, services: StoreServices): Pick<AccountsState, "save" | "reorderAccounts" | "addAccount" | "importAccounts" | "updateNote" | "updateSecret" | "updateRemark" | "updateAccountGroup" | "moveAccounts" | "incrementCounter"> {
   return {
     save: (accounts) => {
       if (!canEditVault(get())) return;
@@ -155,6 +156,34 @@ export function createAccountActions(set: StoreSet, get: StoreGet, runtime: Stor
       } else {
         get().setSelectedGroup(first.groupId ?? UNGROUPED_KEY);
       }
+    },
+
+    updateSecret: (id, secretInput) => {
+      if (!canEditVault(get())) return null;
+      const parsed = parseSecretReplacement(secretInput).result;
+      if (!parsed) return null;
+      const normalizedSecret = normalizeBase32Secret(parsed.secret);
+      if (!normalizedSecret) return null;
+      const current = get().accounts.find((account) => account.id === id);
+      if (!current) return null;
+      const updated: AccountData = {
+        ...current,
+        secret: normalizedSecret,
+        ...(parsed.account ? {
+          type: parsed.account.type,
+          digits: parsed.account.digits,
+          period: parsed.account.period,
+          algorithm: parsed.account.algorithm,
+          ...(parsed.account.type === "hotp" ? { counter: parsed.account.counter } : {}),
+        } : {}),
+      };
+      if (updated.secret === current.secret && updated.type === current.type
+        && updated.digits === current.digits && updated.period === current.period
+        && updated.algorithm === current.algorithm && updated.counter === current.counter) return updated;
+      const next = get().accounts.map((account) => account.id === id ? updated : account);
+      services.persist(next);
+      set({ accounts: next });
+      return updated;
     },
 
     updateNote: (id, note) => {

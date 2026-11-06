@@ -2,11 +2,13 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { ArrowLeft, Check, Copy, KeyRound, QrCode, Trash2 } from "lucide-react";
 import { useOtpCode } from "@/hooks/useOtpCode";
 import { useTimerReady } from "@/hooks/useTimerReady";
-import { formatCode } from "@/lib/otp";
+import { formatCode, generateHOTP, generateTOTP } from "@/lib/otp";
 import type { AccountData, VaultGroup } from "@/lib/types";
 import { EditableText } from "@/components/ui/editable-text";
 import { AccountMetadata } from "@/components/AccountMetadata";
 import { AccountShare, type ShareMode } from "@/components/AccountShare";
+import { useAccounts } from "@/stores/useAccounts";
+import { canEditVault } from "@/stores/accounts/write-guard";
 
 
 interface AccountDetailProps {
@@ -18,6 +20,7 @@ interface AccountDetailProps {
   onUpdateNote: (id: string, note: string) => void;
   onUpdateRemark: (id: string, remark: string) => void;
   onUpdateGroup: (id: string, groupId: string | null) => void;
+  onUpdateSecret?: (id: string, secretInput: string) => AccountData | null;
 }
 
 export function AccountDetail({
@@ -29,13 +32,17 @@ export function AccountDetail({
   onUpdateNote,
   onUpdateRemark,
   onUpdateGroup,
+  onUpdateSecret,
 }: AccountDetailProps) {
+  const updateSecret = useAccounts((state) => state.updateSecret);
+  const editable = useAccounts(canEditVault);
   const { code, remaining, period } = useOtpCode(account);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [shareMode, setShareMode] = useState<ShareMode | null>(null);
   const barReady = useTimerReady(account.id);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const copyGenerationRef = useRef(0);
 
   const isTotp = account.type === "totp";
   const isLow = isTotp && remaining <= 5;
@@ -46,11 +53,21 @@ export function AccountDetail({
 
   const displayName = account.note || originalName;
 
-  useEffect(() => () => clearTimeout(copyTimerRef.current), []);
+  useEffect(() => {
+    setCopied(false);
+    setCopyError(false);
+    return () => {
+      copyGenerationRef.current += 1;
+      clearTimeout(copyTimerRef.current);
+    };
+  }, []);
 
   const handleCopy = useCallback(async () => {
+    if (!/^\d+$/.test(code)) return;
+    const generation = copyGenerationRef.current;
     setCopyError(false);
     const success = await onCopy(code);
+    if (generation !== copyGenerationRef.current) return;
     if (!success) {
       setCopyError(true);
       return;
@@ -59,6 +76,32 @@ export function AccountDetail({
     clearTimeout(copyTimerRef.current);
     copyTimerRef.current = setTimeout(() => setCopied(false), 1200);
   }, [code, onCopy]);
+
+  const handleUpdateSecret = async (secretInput: string) => {
+    const generation = copyGenerationRef.current;
+    const updated = (onUpdateSecret ?? updateSecret)(account.id, secretInput);
+    if (!updated) return false;
+    try {
+      const newCode = updated.type === "hotp"
+        ? await generateHOTP(updated.secret, updated.counter, updated.digits, updated.algorithm)
+        : (await generateTOTP(updated.secret, updated.period, updated.digits, updated.algorithm)).code;
+      if (generation !== copyGenerationRef.current) return true;
+      setShareMode(null);
+      setCopyError(false);
+      const success = await onCopy(newCode);
+      if (generation !== copyGenerationRef.current) return true;
+      if (success) {
+        setCopied(true);
+        clearTimeout(copyTimerRef.current);
+        copyTimerRef.current = setTimeout(() => setCopied(false), 1200);
+      } else setCopyError(true);
+    } catch {
+      if (generation !== copyGenerationRef.current) return true;
+      setShareMode(null);
+      setCopyError(true);
+    }
+    return true;
+  };
 
   // 详情页复用同一实例切换账户时，收起上一个账户的二维码 / 密钥。
   useEffect(() => {
@@ -119,7 +162,7 @@ export function AccountDetail({
 
       <div className="flex flex-1 flex-col px-5 pb-6">
       {sharing ? (
-        <AccountShare account={account} open={shareMode} onClose={() => setShareMode(null)} onCopy={onCopy} />
+        <AccountShare account={account} open={shareMode} editable={editable} onClose={() => setShareMode(null)} onCopy={onCopy} onUpdateSecret={handleUpdateSecret} />
       ) : (
       <>
       <div className="mb-5">
