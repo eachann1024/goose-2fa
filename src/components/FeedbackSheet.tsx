@@ -13,7 +13,7 @@ import { feedbackFetch, feedbackToken, loadFeedback, type FeedbackMessage } from
 type Draft = { message: string; contact: string; images: File[]; video: File | null; requestId: string };
 const drafts = new Map<string, Draft>();
 const imageLimit = 20 * 1024 * 1024;
-const videoLimit = 200 * 1024 * 1024;
+const videoLimit = 95 * 1024 * 1024;
 
 export function FeedbackSheet({ project = "2fa", onClose }: { project?: string; onClose: () => void }) {
   const saved = drafts.get(project);
@@ -67,7 +67,7 @@ export function FeedbackSheet({ project = "2fa", onClose }: { project?: string; 
     if (sendingRef.current) return;
     if (!message.trim()) { setStatus("请输入消息"); return; }
     if (images.some((file) => file.size > imageLimit)) { setStatus("单张图片不能超过 20MB"); return; }
-    if (video && video.size > videoLimit) { setStatus("视频不能超过 200MB"); return; }
+    if (video && video.size > videoLimit) { setStatus("视频不能超过 95MB"); return; }
     sendingRef.current = true;
     setSending(true);
     setStatus("");
@@ -148,7 +148,7 @@ export function FeedbackSheet({ project = "2fa", onClose }: { project?: string; 
             <Button className="ml-auto" type="submit" disabled={sending}>{sending ? "发送中…" : "发送"}</Button>
           </div>
           <Input ref={imageRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/gif,image/webp" multiple aria-label="图片，最多 4 张，每张 20MB" onChange={(event) => { changed(); setImages(Array.from(event.target.files || []).slice(0, 4)); event.target.value = ""; }} />
-          <Input ref={videoRef} className="sr-only" type="file" accept="video/mp4,video/webm,video/quicktime" aria-label="视频，1 个，最大 200MB" onChange={(event) => { changed(); setVideo(event.target.files?.[0] || null); event.target.value = ""; }} />
+          <Input ref={videoRef} className="sr-only" type="file" accept="video/mp4,video/webm,video/quicktime" aria-label="视频，1 个，最大 95MB" onChange={(event) => { changed(); setVideo(event.target.files?.[0] || null); event.target.value = ""; }} />
           {status ? <p role="status" className="text-sm text-fg-muted">{status}</p> : null}
         </form>
       </DialogContent>
