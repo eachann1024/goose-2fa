@@ -4,6 +4,7 @@ import { RefreshCw, Check, Info, PenLine } from "lucide-react";
 import { formatCode } from "@/lib/otp";
 import type { AccountData } from "@/lib/types";
 import type { ViewMode } from "@/stores/useAccounts";
+import { SelectionMark } from "./SelectionMark";
 
 interface CellBodyProps {
   account: AccountData;
@@ -14,6 +15,8 @@ interface CellBodyProps {
   copyError?: boolean;
   viewMode: ViewMode;
   overlay?: boolean;
+  selectionMode?: boolean;
+  selected?: boolean;
   onDetailClick?: (e: React.MouseEvent) => void;
   onRefresh?: (e: React.MouseEvent) => void;
 }
@@ -31,6 +34,8 @@ export const CellBody = memo(function CellBody({
   copyError,
   viewMode,
   overlay,
+  selectionMode,
+  selected,
   onDetailClick,
   onRefresh,
 }: CellBodyProps) {
@@ -71,7 +76,9 @@ export const CellBody = memo(function CellBody({
           </span>
         </div>
 
-        {isTotp ? (
+        {selectionMode ? (
+          <SelectionMark selected={selected ?? false} className="size-9" />
+        ) : isTotp ? (
           <div className="relative flex h-9 w-9 shrink-0 items-center justify-center">
             <svg className="h-9 w-9 -rotate-90" viewBox="0 0 36 36">
               <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="3" className="stroke-border-soft" />
@@ -89,7 +96,7 @@ export const CellBody = memo(function CellBody({
         ) : (
           <div className="flex shrink-0 items-center gap-2">
             <span className="text-[10px] text-fg-faint">#{account.counter}</span>
-            {!copied && !overlay && (
+            {!copied && !overlay && !selectionMode && (
               <button
                 onClick={onRefresh}
                 className="rounded-md p-1 text-fg-faint transition-colors hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle"
@@ -101,7 +108,7 @@ export const CellBody = memo(function CellBody({
           </div>
         )}
 
-        {!overlay && (
+        {!overlay && !selectionMode && (
           <button
             onClick={onDetailClick}
             className={`${detailHit} size-11 shrink-0`}
@@ -118,7 +125,10 @@ export const CellBody = memo(function CellBody({
   if (isCompact) {
     return (
       <>
-        {!overlay && (
+        {!overlay && selectionMode && (
+          <SelectionMark selected={selected ?? false} className="absolute right-1.5 top-1.5 size-6" />
+        )}
+        {!overlay && !selectionMode && (
           <button
             onClick={onDetailClick}
             className={`${detailHit} absolute right-1.5 top-1.5 size-7 before:absolute before:right-0 before:top-0 before:size-14 before:content-['']`}
@@ -152,7 +162,7 @@ export const CellBody = memo(function CellBody({
             )}
           </span>
 
-          {!isTotp && !copied && !overlay && (
+          {!isTotp && !copied && !overlay && !selectionMode && (
             <button
               onClick={onRefresh}
               className="rounded-md p-0.5 text-fg-faint transition-colors hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle"
@@ -189,7 +199,10 @@ export const CellBody = memo(function CellBody({
   // 双列网格视图
   return (
     <>
-      {!overlay && (
+      {!overlay && selectionMode && (
+        <SelectionMark selected={selected ?? false} className="absolute right-1.5 top-1.5 size-7" />
+      )}
+      {!overlay && !selectionMode && (
         <button
           onClick={onDetailClick}
           className={`${detailHit} absolute right-1.5 top-1.5 size-8 before:absolute before:right-0 before:top-0 before:size-16 before:content-['']`}
@@ -223,7 +236,7 @@ export const CellBody = memo(function CellBody({
           )}
         </span>
 
-        {!isTotp && !copied && !overlay && (
+        {!isTotp && !copied && !overlay && !selectionMode && (
           <button
             onClick={onRefresh}
             className="rounded-md p-1 text-fg-faint transition-colors hover:bg-accent-subtle hover:text-accent active:bg-accent-subtle"

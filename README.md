@@ -14,6 +14,7 @@ https://github.com/user-attachments/assets/5ab572b6-5c74-4549-a24a-26cbcf7d3be2
 - **MCP 不给种子**：只读你指定的备份，永不返回种子、otpauth、动态码。
 - **吃进迁移码**：粘贴 Google Authenticator 迁移码或 otpauth 链接就能进。
 - **备份带分组**：导出带分组、备注、自定义名；卡片可拖到其他一级分组。
+- **批量管理**：多选账户一次移动分组或移入回收站，全选后即可全部清空。
 - **TOTP 与 HOTP 同一面**：倒计时共享时钟，HOTP 粘贴成功后才安全加计数。
 
 ## 当前状态

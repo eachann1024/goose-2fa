@@ -1,29 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  DndContext,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from "@dnd-kit/core";
+import { useCallback, useEffect, useMemo } from "react";
+import { DndContext } from "@dnd-kit/core";
 import {
   SortableContext,
   rectSortingStrategy,
   verticalListSortingStrategy,
-  sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { CodeCell } from "./CodeCell";
 import { AccountDragOverlay } from "./AccountDragOverlay";
 import { GroupSegments } from "./GroupSegments";
-import { HoldPointerSensor, groupAwareCollision, groupAxisModifier } from "@/lib/group-drag";
 import { EmptyState } from "./EmptyState";
+import { BatchControls } from "./BatchControls";
 import { usePlatform } from "@/platform/context";
+import { useBatchSelection } from "@/hooks/useBatchSelection";
+import { useAccountDrag } from "@/hooks/useAccountDrag";
+import { groupAwareCollision, groupAxisModifier } from "@/lib/group-drag";
 import {
   buildGroupTallies,
   filterByGroup,
   resolveSelectedGroup,
-  UNGROUPED_KEY,
 } from "@/lib/groups";
 import { filterAccounts } from "@/lib/search";
 import type { AccountData, VaultGroup } from "@/lib/types";
@@ -49,6 +43,10 @@ interface CodeGridProps {
   onAdd: () => void;
   onClipboardImport: () => void;
   onScreenCapture: () => void;
+  batchMode?: boolean;
+  onExitBatch: () => void;
+  onRemoveMany: (ids: string[]) => void;
+  onMoveMany: (ids: string[], groupId: string | null) => void;
 }
 
 export function CodeGrid({
@@ -71,9 +69,15 @@ export function CodeGrid({
   onAdd,
   onClipboardImport,
   onScreenCapture,
+  batchMode,
+  onExitBatch,
+  onRemoveMany,
+  onMoveMany,
 }: CodeGridProps) {
   const platform = usePlatform();
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const allIds = useMemo(() => accounts.map((account) => account.id), [accounts]);
+  const { selectedIds, toggle, toggleAll } = useBatchSelection(Boolean(batchMode), allIds);
+  const allSelected = accounts.length > 0 && selectedIds.size === accounts.length;
 
   const searched = useMemo(
     () => filterAccounts(accounts, searchQuery),
@@ -98,21 +102,23 @@ export function CodeGrid({
   );
 
   const scoped = useMemo(() => {
+    // 批量管理模式直接展示全部账户，全选即全库，方便一次清理。
+    if (batchMode) return accounts;
     const base = searchQuery ? searched : filterByGroup(searched, effectiveGroup);
     return base;
-  }, [searched, effectiveGroup, searchQuery]);
+  }, [searched, effectiveGroup, searchQuery, batchMode, accounts]);
 
   const flatIds = useMemo(
     () => scoped.map((account) => `account:${account.id}`),
     [scoped],
   );
 
-  const sortable = !searchQuery;
+  const sortable = !searchQuery && !batchMode;
 
-  const sensors = useSensors(
-    useSensor(HoldPointerSensor, { activationConstraint: { delay: 220, tolerance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  // 账户被外部清空时没有卡片可退出，批量模式必须自行收尾。
+  useEffect(() => {
+    if (batchMode && accounts.length === 0) onExitBatch();
+  }, [batchMode, accounts.length, onExitBatch]);
 
   const handleCopy = useCallback(
     async (text: string) => {
@@ -127,51 +133,7 @@ export function CodeGrid({
     [onCopy, platform],
   );
 
-  const handleDragStart = useCallback((e: DragStartEvent) => {
-    if (e.active.data.current?.type === "group") return;
-    const accountId = e.active.data.current?.accountId;
-    setActiveId(typeof accountId === "string" ? accountId : null);
-  }, []);
-
-  const handleDragEnd = useCallback(
-    (e: DragEndEvent) => {
-      const { active, over } = e;
-      if (active.data.current?.type === "group") {
-        const activeGroupId = active.data.current.groupId;
-        const overGroupId = over?.data.current?.groupId;
-        if (
-          typeof activeGroupId === "string" &&
-          typeof overGroupId === "string" &&
-          activeGroupId !== overGroupId
-        ) {
-          onReorderGroups(activeGroupId, overGroupId);
-        }
-        return;
-      }
-      const accountId = active.data.current?.accountId;
-      if (typeof accountId !== "string") {
-        setActiveId(null);
-        return;
-      }
-      if (over?.data.current?.type === "group") {
-        const groupId = (over.data.current.groupId as string | null) ?? null;
-        onMoveToGroup(accountId, groupId === UNGROUPED_KEY ? null : groupId);
-      } else if (over?.data.current?.type === "account") {
-        const overAccountId = over.data.current.accountId;
-        if (typeof overAccountId === "string" && accountId !== overAccountId) {
-          onReorder(accountId, overAccountId);
-        }
-      }
-      setActiveId(null);
-    },
-    [onMoveToGroup, onReorder, onReorderGroups],
-  );
-
-  const handleDragCancel = useCallback(() => setActiveId(null), []);
-
-  const activeAccount = activeId
-    ? accounts.find((a) => a.id === activeId) ?? null
-    : null;
+  const drag = useAccountDrag({ accounts, onReorder, onReorderGroups, onMoveToGroup });
 
   if (accounts.length === 0) {
     return (
@@ -191,28 +153,41 @@ export function CodeGrid({
       ? "grid grid-cols-3 gap-2 max-[360px]:grid-cols-2"
       : "grid grid-cols-2 gap-3";
 
-  const showSegments = !searchQuery;
+  const showSegments = !searchQuery && !batchMode;
 
   return (
     <div
       className={`relative z-[1] flex min-h-0 flex-1 flex-col ${showSegments ? "" : "pt-[45px]"}`}
-      data-dragging={activeId !== null ? "" : undefined}
+      data-dragging={drag.activeId !== null ? "" : undefined}
     >
       <DndContext
-        sensors={sensors}
+        sensors={drag.sensors}
         collisionDetection={groupAwareCollision}
         modifiers={[groupAxisModifier]}
         accessibility={{ restoreFocus: false }}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        onDragCancel={handleDragCancel}
+        onDragStart={drag.handleDragStart}
+        onDragEnd={drag.handleDragEnd}
+        onDragCancel={drag.handleDragCancel}
       >
+        {batchMode && (
+          <BatchControls
+            total={accounts.length}
+            selectedCount={selectedIds.size}
+            allSelected={allSelected}
+            groups={groups}
+            onToggleAll={toggleAll}
+            onExit={onExitBatch}
+            onMove={(groupId) => onMoveMany([...selectedIds], groupId)}
+            onRemove={() => onRemoveMany([...selectedIds])}
+          />
+        )}
+
         {showSegments && (
           <GroupSegments
             groups={tallies}
             totalCount={accounts.length}
             selected={effectiveGroup}
-            dropEnabled={activeId !== null}
+            dropEnabled={drag.activeId !== null}
             onSelect={onSelectGroup}
             onCreate={onCreateGroup}
             onRename={onRenameGroup}
@@ -254,7 +229,7 @@ export function CodeGrid({
               items={flatIds}
               strategy={isList ? verticalListSortingStrategy : rectSortingStrategy}
             >
-              <div className={`${cellsClass} px-4 pb-5 pt-3`}>
+              <div className={`${cellsClass} px-4 ${batchMode ? "pb-24" : "pb-5"} pt-3`}>
                 {scoped.map((account, i) => (
                   <CodeCell
                     key={account.id}
@@ -265,6 +240,9 @@ export function CodeGrid({
                     index={i}
                     viewMode={viewMode}
                     sortable={sortable}
+                    selectionMode={batchMode}
+                    selected={selectedIds.has(account.id)}
+                    onToggleSelect={toggle}
                   />
                 ))}
               </div>
@@ -272,7 +250,7 @@ export function CodeGrid({
           </div>
         )}
 
-        <AccountDragOverlay account={activeAccount} viewMode={viewMode} />
+        <AccountDragOverlay account={drag.activeAccount} viewMode={viewMode} />
       </DndContext>
     </div>
   );
