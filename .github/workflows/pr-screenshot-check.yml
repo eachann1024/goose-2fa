@@ -1,0 +1,44 @@
+name: PR screenshot check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions: {}
+
+jobs:
+  require-screenshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require screenshot, GIF, or video in PR body
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const author = context.payload.pull_request.user.login;
+            const skip = new Set([
+              'eachann1024',
+              'dependabot[bot]',
+              'dependabot-preview[bot]',
+              'renovate[bot]',
+              'renovate-bot',
+              'github-actions[bot]',
+            ]);
+            if (skip.has(author)) {
+              core.info(`Skip screenshot check for author: ${author}`);
+              return;
+            }
+
+            const body = context.payload.pull_request.body || '';
+            const hasMedia =
+              /!\[[^\]]*\]\([^)]+\)/i.test(body) ||
+              /<(img|video|source)\b[^>]*>/i.test(body) ||
+              /https?:\/\/[^\s)]*(user-attachments|user-images)[^\s)]*/i.test(body) ||
+              /https?:\/\/[^\s)]+\.(png|jpe?g|gif|webp|mp4|mov|webm)(\?[^\s)]*)?/i.test(body);
+
+            if (!hasMedia) {
+              core.setFailed(
+                '请在 PR 描述中补充截图并标出改动位置（界面或交互改动建议附 GIF 或短视频）。 / Please add screenshots highlighting your changes to the PR description (a GIF or short video is preferred for UI/interaction changes).'
+              );
+            } else {
+              core.info('Found image/GIF/video reference in PR body.');
+            }
