@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo } from "react";
 import { DndContext } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -49,7 +49,7 @@ interface CodeGridProps {
   onMoveMany: (ids: string[], groupId: string | null) => void;
 }
 
-export function CodeGrid({
+export const CodeGrid = memo(function CodeGrid({
   accounts,
   groups,
   searchQuery,
@@ -230,14 +230,13 @@ export function CodeGrid({
               strategy={isList ? verticalListSortingStrategy : rectSortingStrategy}
             >
               <div className={`${cellsClass} px-4 ${batchMode ? "pb-24" : "pb-5"} pt-3`}>
-                {scoped.map((account, i) => (
+                {scoped.map((account) => (
                   <CodeCell
                     key={account.id}
                     account={account}
                     onCopy={handleCopy}
                     onDetail={onDetail}
                     onIncrement={onIncrement}
-                    index={i}
                     viewMode={viewMode}
                     sortable={sortable}
                     selectionMode={batchMode}
@@ -254,4 +253,4 @@ export function CodeGrid({
       </DndContext>
     </div>
   );
-}
+});

@@ -79,6 +79,7 @@ export interface AccountsState {
   permanentlyDelete: (id: string) => void;
   emptyTrash: () => void;
   updateNote: (id: string, note: string) => void;
+  updateSecret: (id: string, secretInput: string) => AccountData | null;
   updateRemark: (id: string, remark: string) => void;
   updateAccountGroup: (id: string, groupId: string | null) => void;
   /** 批量移动分组，一次写库。 */
