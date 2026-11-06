@@ -11,6 +11,12 @@ export type SourceRead =
   | { status: "missing" | "empty" | "invalid" | "unresolved" | "error" };
 
 export type ViewMode = "grid" | "compact" | "list";
+
+/** 一次性提示：成功用强调色，异常用危险色。 */
+export interface Notice {
+  message: string;
+  tone: "success" | "error";
+}
 export type ThemeMode = "light" | "dark" | "system";
 
 export interface AccountsState {
@@ -21,6 +27,8 @@ export interface AccountsState {
   showAddForm: boolean;
   showDataTransfer: boolean;
   showTrash: boolean;
+  /** 一次性状态提示（添加/导入结果或异常），由 Toast 展示后清空。 */
+  notice: Notice | null;
   isDark: boolean;
   isThemeLocked: boolean;
   editMode: boolean;
@@ -65,12 +73,16 @@ export interface AccountsState {
   addAccount: (input: NewAccountInput) => void;
   importAccounts: (inputs: NewAccountInput[], groups?: VaultGroup[]) => void;
   removeAccount: (id: string) => void;
+  /** 批量移入回收站；空选不写入。 */
+  removeAccounts: (ids: string[]) => void;
   restoreAccount: (id: string) => void;
   permanentlyDelete: (id: string) => void;
   emptyTrash: () => void;
   updateNote: (id: string, note: string) => void;
   updateRemark: (id: string, remark: string) => void;
   updateAccountGroup: (id: string, groupId: string | null) => void;
+  /** 批量移动分组，一次写库。 */
+  moveAccounts: (ids: string[], groupId: string | null) => void;
   createGroup: (name: string) => string | null;
   renameGroup: (id: string, name: string) => boolean;
   deleteGroup: (id: string) => void;
@@ -78,6 +90,7 @@ export interface AccountsState {
   incrementCounter: (id: string) => Promise<boolean>;
   setSearchQuery: (query: string) => void;
   setShowAddForm: (show: boolean) => void;
+  setNotice: (notice: Notice | null) => void;
   setShowDataTransfer: (show: boolean) => void;
   setShowTrash: (show: boolean) => void;
   toggleDark: () => void;

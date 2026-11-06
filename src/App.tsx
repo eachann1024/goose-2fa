@@ -7,14 +7,14 @@ import { CodeGrid } from "@/components/CodeGrid";
 import { AddAccount } from "@/components/AddAccount";
 import { DataTransfer } from "@/components/DataTransfer";
 import { TrashBin } from "@/components/TrashBin";
-import { AccountDetail } from "@/components/AccountDetail";
 import { QuickCode } from "@/components/QuickCode";
 import { VaultLoadState } from "@/components/VaultLoadState";
+import { Toast } from "@/components/Toast";
+import { DetailLayer } from "@/components/DetailLayer";
 import type { AccountData } from "@/lib/types";
 import { checkFeedbackUnread } from "@/lib/feedback";
 import { useHostTheme, usePluginSession } from "@/lib/use-host-session";
-
-type ViewState = "idle" | "opening" | "open" | "closing";
+import { listFaceClass, type ViewState } from "@/lib/view-transition";
 
 export default function App() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -23,6 +23,10 @@ export default function App() {
   const trash = useAccounts((s) => s.trash);
   const groups = useAccounts((s) => s.groups);
   const searchQuery = useAccounts((s) => s.searchQuery);
+  const notice = useAccounts((s) => s.notice);
+  const editMode = useAccounts((s) => s.editMode);
+  const setEditMode = useAccounts((s) => s.setEditMode);
+  const setNotice = useAccounts((s) => s.setNotice);
   const showAddForm = useAccounts((s) => s.showAddForm);
   const showDataTransfer = useAccounts((s) => s.showDataTransfer);
   const showTrash = useAccounts((s) => s.showTrash);
@@ -53,6 +57,8 @@ export default function App() {
   const renameGroup = useAccounts((s) => s.renameGroup);
   const deleteGroup = useAccounts((s) => s.deleteGroup);
   const incrementCounter = useAccounts((s) => s.incrementCounter);
+  const removeAccounts = useAccounts((s) => s.removeAccounts);
+  const moveAccounts = useAccounts((s) => s.moveAccounts);
   const setSearchQuery = useAccounts((s) => s.setSearchQuery);
   const setShowAddForm = useAccounts((s) => s.setShowAddForm);
   const setShowDataTransfer = useAccounts((s) => s.setShowDataTransfer);
@@ -92,6 +98,8 @@ export default function App() {
       document.removeEventListener("visibilitychange", tick);
     };
   }, []);
+
+  const dismissNotice = useCallback(() => setNotice(null), [setNotice]);
 
   const handleCopy = (_text: string) => {};
 
@@ -190,6 +198,7 @@ export default function App() {
           onImport={importAccounts}
           onCancel={() => setShowDataTransfer(false)}
         />
+        <Toast notice={notice} onDismiss={dismissNotice} raised={editMode} />
       </div>
     );
   }
@@ -203,24 +212,12 @@ export default function App() {
           onCancel={() => { setShowAddForm(false); setAddFormAction(undefined); }}
           initialAction={addFormAction}
         />
+        <Toast notice={notice} onDismiss={dismissNotice} raised={editMode} />
       </div>
     );
   }
 
-  const frontClass = [
-    "view-face view-list flex min-h-0 flex-col bg-bg",
-    viewState === "opening" ? "is-leaving" : "",
-    viewState === "closing" ? "is-entering" : "",
-    viewState === "open" ? "pointer-events-none opacity-0" : "",
-  ].join(" ");
-
-  const backClass = [
-    "view-face view-detail",
-    viewState === "opening" ? "is-entering" : "",
-    viewState === "closing" ? "is-leaving" : "",
-    viewState === "idle" ? "pointer-events-none" : "",
-    viewState === "open" ? "!transform-none !opacity-100" : "",
-  ].join(" ");
+  const frontClass = listFaceClass(viewState);
 
   return (
     <div className="view-scene">
@@ -238,6 +235,8 @@ export default function App() {
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             onAdd={() => { setAddFormAction(undefined); setShowAddForm(true); }}
+            batchMode={editMode}
+            onBatchManage={() => { setSearchQuery(""); setEditMode(true); }}
             onManageData={() => setShowDataTransfer(true)}
             onTrash={() => setShowTrash(true)}
             onFeedback={() => setFeedbackOpen(true)}
@@ -267,31 +266,27 @@ export default function App() {
             onAdd={() => { setAddFormAction(undefined); setShowAddForm(true); }}
             onClipboardImport={() => { setAddFormAction("clipboard"); setShowAddForm(true); }}
             onScreenCapture={() => { setAddFormAction("capture"); setShowAddForm(true); }}
+            batchMode={editMode}
+            onExitBatch={() => setEditMode(false)}
+            onRemoveMany={removeAccounts}
+            onMoveMany={moveAccounts}
           />
         </div>
       </div>
 
-      {liveDetail ? (
-        <div
-          className={backClass}
-          inert={viewState === "idle" ? true : undefined}
-          aria-hidden={viewState === "idle"}
-        >
-          <AccountDetail
-            account={liveDetail}
-            groups={groups}
-            onClose={handleCloseDetail}
-            onDelete={handleDeleteFromDetail}
-            onCopy={handleDetailCopy}
-            onUpdateNote={updateNote}
-            onUpdateRemark={updateRemark}
-            onUpdateGroup={updateAccountGroup}
-          />
-        </div>
-      ) : (
-        <div className="view-face view-detail pointer-events-none" aria-hidden="true" />
-      )}
+      <DetailLayer
+        account={liveDetail}
+        viewState={viewState}
+        groups={groups}
+        onClose={handleCloseDetail}
+        onDelete={handleDeleteFromDetail}
+        onCopy={handleDetailCopy}
+        onUpdateNote={updateNote}
+        onUpdateRemark={updateRemark}
+        onUpdateGroup={updateAccountGroup}
+      />
       {feedbackOpen ? <FeedbackSheet onClose={() => setFeedbackOpen(false)} /> : null}
+      <Toast notice={notice} onDismiss={dismissNotice} raised={editMode} />
     </div>
   );
 }

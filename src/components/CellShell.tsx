@@ -11,6 +11,8 @@ interface CellShellProps {
   activatorRef?: React.Ref<HTMLButtonElement>;
   onClick?: () => void;
   copyLabel?: string;
+  selected?: boolean;
+  pressed?: boolean;
   ref?: React.Ref<HTMLDivElement>;
 }
 
@@ -25,6 +27,8 @@ export function CellShell({
   activatorRef,
   onClick,
   copyLabel,
+  selected,
+  pressed,
   ref,
 }: CellShellProps) {
   const isList = viewMode === "list";
@@ -34,11 +38,13 @@ export function CellShell({
     : isCompact
       ? "flex w-full flex-col items-start p-2.5 pb-2"
       : "flex w-full flex-col items-start p-4 pb-3";
-  const base = copied
-    ? "copied-flash border-copied-border"
-    : interactive
-      ? "bg-surface hover:border-accent hover:bg-accent-subtle active:bg-accent-subtle"
-      : "bg-surface";
+  const base = selected
+    ? "border-accent bg-accent-subtle"
+    : copied
+      ? "copied-flash border-copied-border"
+      : interactive
+        ? "bg-surface hover:border-accent hover:bg-accent-subtle active:bg-accent-subtle"
+        : "bg-surface";
 
   return (
     <div
@@ -54,6 +60,7 @@ export function CellShell({
           className={`absolute inset-0 rounded-cell ${activatorProps ? "touch-none active:cursor-grabbing" : ""}`}
           onClick={onClick}
           aria-label={copyLabel}
+          aria-pressed={pressed}
         />
       )}
       <div className="cell-content contents">{children}</div>
