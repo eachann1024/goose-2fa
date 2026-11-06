@@ -2,7 +2,7 @@ import { canEditVault } from "./write-guard";
 import type { AccountData } from "@/lib/types";
 import type { AccountsState, StoreGet, StoreSet, StoreServices } from "./store-types";
 
-export function createTrashActions(set: StoreSet, get: StoreGet, services: StoreServices): Pick<AccountsState, "removeAccount" | "restoreAccount" | "permanentlyDelete" | "emptyTrash"> {
+export function createTrashActions(set: StoreSet, get: StoreGet, services: StoreServices): Pick<AccountsState, "removeAccount" | "removeAccounts" | "restoreAccount" | "permanentlyDelete" | "emptyTrash"> {
   return {
     removeAccount: (id) => {
       if (!canEditVault(get())) return;
@@ -18,6 +18,31 @@ export function createTrashActions(set: StoreSet, get: StoreGet, services: Store
       } else {
         set({ accounts: next });
       }
+    },
+
+    removeAccounts: (ids) => {
+      if (!canEditVault(get())) {
+        set({ notice: { message: "数据源尚未就绪，暂时无法删除账户", tone: "error" } });
+        return;
+      }
+      if (ids.length === 0) return;
+      const idSet = new Set(ids);
+      const removed = get().accounts.filter((account) => idSet.has(account.id));
+      const next = get().accounts.filter((account) => !idSet.has(account.id));
+      if (removed.length === 0) {
+        set({ editMode: false });
+        return;
+      }
+      const deletedAt = Date.now();
+      const nextTrash = [...get().trash, ...removed.map((account) => ({ ...account, deletedAt }))];
+      const saved = services.persist(next);
+      services.persistTrash(nextTrash);
+      services.scheduleSync();
+      set({ accounts: next, trash: nextTrash, editMode: false });
+      void saved.then((success) => {
+        if (!success) return;
+        set({ notice: { message: `已将 ${removed.length} 个账户移入回收站`, tone: "success" } });
+      });
     },
 
     restoreAccount: (id) => {

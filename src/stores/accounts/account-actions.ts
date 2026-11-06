@@ -3,10 +3,10 @@ import { arrayMove } from "@dnd-kit/sortable";
 import type { AccountData, NewAccountInput } from "@/lib/types";
 import { normalizeNewAccountInput } from "@/lib/account-validation";
 import { generateHOTP, generateTOTP } from "@/lib/otp";
-import { UNGROUPED_KEY, nextGroupOrder } from "@/lib/groups";
-import type { AccountsState, StoreGet, StoreSet, StoreRuntime, StoreServices } from "./store-types";
+import { DEFAULT_GROUP_NAME, UNGROUPED_KEY, nextGroupOrder } from "@/lib/groups";
+import type { AccountsState, Notice, StoreGet, StoreSet, StoreRuntime, StoreServices } from "./store-types";
 
-export function createAccountActions(set: StoreSet, get: StoreGet, runtime: StoreRuntime, services: StoreServices): Pick<AccountsState, "save" | "reorderAccounts" | "addAccount" | "importAccounts" | "updateNote" | "updateRemark" | "updateAccountGroup" | "incrementCounter"> {
+export function createAccountActions(set: StoreSet, get: StoreGet, runtime: StoreRuntime, services: StoreServices): Pick<AccountsState, "save" | "reorderAccounts" | "addAccount" | "importAccounts" | "updateNote" | "updateRemark" | "updateAccountGroup" | "moveAccounts" | "incrementCounter"> {
   return {
     save: (accounts) => {
       if (!canEditVault(get())) return;
@@ -27,7 +27,10 @@ export function createAccountActions(set: StoreSet, get: StoreGet, runtime: Stor
     },
 
     addAccount: (input) => {
-      if (!canEditVault(get())) return;
+      if (!canEditVault(get())) {
+        set({ notice: { message: "数据源尚未就绪，暂时无法添加账户", tone: "error" } });
+        return;
+      }
       const normalized = normalizeNewAccountInput(input);
       if (!normalized) return;
       const displayName = normalized.issuer
@@ -53,6 +56,7 @@ export function createAccountActions(set: StoreSet, get: StoreGet, runtime: Stor
       set({ accounts: next, showAddForm: false });
       void saved.then(async (success) => {
         if (!success) return;
+        set({ notice: { message: `已添加「${displayName}」`, tone: "success" } });
         if (get().syncEnabled) {
           await runtime.syncQueue;
           const state = get();
@@ -76,7 +80,10 @@ export function createAccountActions(set: StoreSet, get: StoreGet, runtime: Stor
     },
 
     importAccounts: (inputs, importedGroups = []) => {
-      if (!canEditVault(get())) return;
+      if (!canEditVault(get())) {
+        set({ notice: { message: "数据源尚未就绪，暂时无法导入账户", tone: "error" } });
+        return;
+      }
       const now = Date.now();
       const selected = get().selectedGroup;
       const selectedGroupId =
@@ -117,10 +124,37 @@ export function createAccountActions(set: StoreSet, get: StoreGet, runtime: Stor
             ? (input.groupId ? groupIdMap.get(input.groupId) ?? null : null)
             : selectedGroupId,
         }));
+      if (newAccounts.length === 0) {
+        set({
+          showAddForm: false,
+          showDataTransfer: false,
+          notice: { message: "没有可导入的账户", tone: "error" },
+        });
+        return;
+      }
       const next = [...get().accounts, ...newAccounts];
       if (mergedGroups.length !== currentGroups.length) services.persistGroups(mergedGroups);
-      services.persist(next);
-      set({ accounts: next, groups: mergedGroups });
+      const saved = services.persist(next);
+      const first = newAccounts[0]!;
+      const skipped = inputs.length - newAccounts.length;
+      const base = newAccounts.length === 1
+        ? `已导入「${first.issuer || first.name}」`
+        : `已导入 ${newAccounts.length} 个账户`;
+      const notice: Notice = {
+        message: skipped > 0 ? `${base}，跳过 ${skipped} 条无效数据` : base,
+        tone: "success",
+      };
+      set({ accounts: next, groups: mergedGroups, showAddForm: false, showDataTransfer: false });
+      // 写盘成功才宣布成功，失败时交给存储层的错误通知。
+      void saved.then((success) => {
+        if (success) set({ notice });
+      });
+      // 跳到导入账户所在分组：导入完成后直接看到结果，而不是停在原来的分组。
+      if (mergedGroups.length === 0) {
+        get().setSelectedGroup(null);
+      } else {
+        get().setSelectedGroup(first.groupId ?? UNGROUPED_KEY);
+      }
     },
 
     updateNote: (id, note) => {
@@ -152,6 +186,41 @@ export function createAccountActions(set: StoreSet, get: StoreGet, runtime: Stor
       );
       services.persist(next);
       set({ accounts: next });
+    },
+
+    moveAccounts: (ids, groupId) => {
+      if (!canEditVault(get())) {
+        set({ notice: { message: "数据源尚未就绪，暂时无法移动账户", tone: "error" } });
+        return;
+      }
+      if (ids.length === 0) return;
+      if (groupId !== null && !get().groups.some((group) => group.id === groupId)) return;
+      const idSet = new Set(ids);
+      const moved = get().accounts.filter(
+        (account) => idSet.has(account.id) && (account.groupId ?? null) !== groupId,
+      );
+      if (moved.length === 0) {
+        set({
+          editMode: false,
+          notice: { message: "所选账户已在目标分组", tone: "success" },
+        });
+        return;
+      }
+      const next = get().accounts.map((account) =>
+        idSet.has(account.id) ? { ...account, groupId } : account,
+      );
+      const groupName = groupId
+        ? get().groups.find((group) => group.id === groupId)?.name ?? ""
+        : DEFAULT_GROUP_NAME;
+      const saved = services.persist(next);
+      set({ accounts: next, editMode: false });
+      // 跳到目标分组，让移动结果立刻可见。
+      if (get().groups.length === 0) get().setSelectedGroup(null);
+      else get().setSelectedGroup(groupId ?? UNGROUPED_KEY);
+      void saved.then((success) => {
+        if (!success) return;
+        set({ notice: { message: `已将 ${moved.length} 个账户移动到「${groupName}」`, tone: "success" } });
+      });
     },
 
     incrementCounter: async (id) => {

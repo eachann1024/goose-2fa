@@ -114,6 +114,8 @@ beforeEach(() => {
     groups: [],
     selectedGroup: null,
     showAddForm: false,
+    editMode: false,
+    notice: null,
     loadStatus: "ready",
     loadError: null,
     localCacheBroken: false,
@@ -165,6 +167,96 @@ describe("账户存储", () => {
     expect(state.groups.map((group) => group.name)).toEqual(["现有分组", "备份分组"]);
     expect(state.accounts[0]?.groupId).not.toBe("shared-id");
     expect(state.groups.some((group) => group.id === state.accounts[0]?.groupId)).toBe(true);
+  });
+
+  it("导入成功后关闭添加页并给出成功提示", async () => {
+    initPlatform(makeAdapter());
+    useAccounts.setState({ showAddForm: true });
+
+    useAccounts.getState().importAccounts([input]);
+
+    expect(useAccounts.getState().showAddForm).toBe(false);
+    await vi.waitFor(() => {
+      expect(useAccounts.getState().notice).toEqual({
+        message: "已导入「GitHub」",
+        tone: "success",
+      });
+    });
+  });
+
+  it("没有可导入的账户时关闭页面并给出错误提示", () => {
+    initPlatform(makeAdapter());
+    useAccounts.setState({ showAddForm: true });
+
+    useAccounts.getState().importAccounts([]);
+
+    const state = useAccounts.getState();
+    expect(state.showAddForm).toBe(false);
+    expect(state.notice).toEqual({ message: "没有可导入的账户", tone: "error" });
+  });
+
+  it("数据源未就绪时拒绝导入并用错误提示替代静默失败", () => {
+    initPlatform(makeAdapter());
+    useAccounts.setState({ syncEnabled: true, syncStatus: "conflict" });
+
+    useAccounts.getState().importAccounts([input]);
+
+    const state = useAccounts.getState();
+    expect(state.accounts).toEqual([]);
+    expect(state.notice).toEqual({
+      message: "数据源尚未就绪，暂时无法导入账户",
+      tone: "error",
+    });
+  });
+
+  it("批量移入回收站只写一次库并退出批量模式", async () => {
+    const adapter = makeAdapter();
+    initPlatform(adapter);
+    useAccounts.setState({
+      accounts: [
+        storedAccount("a"),
+        storedAccount("b", { name: "bob@example.com" }),
+        storedAccount("c", { name: "carol@example.com" }),
+      ],
+      editMode: true,
+    });
+
+    useAccounts.getState().removeAccounts(["a", "c"]);
+
+    const state = useAccounts.getState();
+    expect(state.accounts.map((account) => account.id)).toEqual(["b"]);
+    expect(state.trash.map((account) => account.id).sort()).toEqual(["a", "c"]);
+    expect(state.editMode).toBe(false);
+    await vi.waitFor(() => expect(adapter.saveAccounts).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => {
+      expect(useAccounts.getState().notice).toEqual({
+        message: "已将 2 个账户移入回收站",
+        tone: "success",
+      });
+    });
+  });
+
+  it("批量移动分组后跳到目标分组并提示", async () => {
+    initPlatform(makeAdapter());
+    useAccounts.setState({
+      accounts: [storedAccount("a"), storedAccount("b", { name: "bob@example.com" })],
+      groups: [{ id: "g-work", name: "工作", order: 0, createdAt: 1 }],
+      editMode: true,
+      selectedGroup: null,
+    });
+
+    useAccounts.getState().moveAccounts(["a", "b"], "g-work");
+
+    const state = useAccounts.getState();
+    expect(state.accounts.every((account) => account.groupId === "g-work")).toBe(true);
+    expect(state.selectedGroup).toBe("g-work");
+    expect(state.editMode).toBe(false);
+    await vi.waitFor(() => {
+      expect(useAccounts.getState().notice).toEqual({
+        message: "已将 2 个账户移动到「工作」",
+        tone: "success",
+      });
+    });
   });
 
   it("保存失败时向用户发出通知", async () => {
