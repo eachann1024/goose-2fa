@@ -71,7 +71,7 @@ export function applyFilePreferences(preferences: SyncPreferences): SyncPreferen
   return next;
 }
 
-export function createPreferenceActions(set: StoreSet, get: StoreGet, services: StoreServices): Pick<AccountsState, "setViewMode" | "setSelectedGroup" | "setAccentColor" | "setSearchQuery" | "setShowAddForm" | "setShowDataTransfer" | "setShowTrash" | "toggleDark" | "toggleThemeLock" | "setThemeMode" | "syncSystemDark" | "setEditMode"> {
+export function createPreferenceActions(set: StoreSet, get: StoreGet, services: StoreServices): Pick<AccountsState, "setViewMode" | "setSelectedGroup" | "setAccentColor" | "setSearchQuery" | "setShowAddForm" | "setShowDataTransfer" | "setShowTrash" | "setNotice" | "toggleDark" | "toggleThemeLock" | "setThemeMode" | "syncSystemDark" | "setEditMode"> {
   return {
     setViewMode: (mode) => {
       if (!canEditVault(get())) return;
@@ -101,11 +101,13 @@ export function createPreferenceActions(set: StoreSet, get: StoreGet, services: 
       set({ searchQuery });
     },
 
-    setShowAddForm: (showAddForm) => set({ showAddForm }),
+    setShowAddForm: (showAddForm) => set({ showAddForm, notice: null }),
 
-    setShowDataTransfer: (showDataTransfer) => set({ showDataTransfer }),
+    setNotice: (notice) => set({ notice }),
 
-    setShowTrash: (showTrash) => set({ showTrash }),
+    setShowDataTransfer: (showDataTransfer) => set({ showDataTransfer, notice: null }),
+
+    setShowTrash: (showTrash) => set({ showTrash, notice: null }),
 
     toggleDark: () => {
       if (!canEditVault(get())) return;

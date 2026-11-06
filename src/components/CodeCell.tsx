@@ -17,6 +17,9 @@ interface CodeCellProps {
   index: number;
   viewMode: ViewMode;
   sortable: boolean;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 export function CodeCell({
@@ -27,6 +30,9 @@ export function CodeCell({
   index: _index,
   viewMode,
   sortable,
+  selectionMode,
+  selected,
+  onToggleSelect,
 }: CodeCellProps) {
   const { code, remaining, period } = useOtpCode(account);
   const [copied, setCopied] = useState(false);
@@ -76,6 +82,10 @@ export function CodeCell({
     [account, onDetail],
   );
 
+  const handleSelect = useCallback(() => {
+    onToggleSelect?.(account.id);
+  }, [account.id, onToggleSelect]);
+
   const handleRefresh = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -92,15 +102,21 @@ export function CodeCell({
   };
 
   return (
-    <AccountContextMenu account={account} disabled={isDragging} onCopy={handleCopy} onDetail={onDetail}>
+    <AccountContextMenu account={account} disabled={isDragging || Boolean(selectionMode)} onCopy={handleCopy} onDetail={onDetail}>
       <CellShell
         ref={setNodeRef}
         style={style}
         viewMode={viewMode}
         copied={copied}
         className={isDragging ? "dragging-source" : isSorting ? "dragging-sibling" : ""}
-        onClick={() => void handleCopy()}
-        copyLabel={`复制 ${account.note || account.issuer || account.name} 的验证码`}
+        onClick={selectionMode ? handleSelect : () => void handleCopy()}
+        copyLabel={
+          selectionMode
+            ? `${selected ? "取消选择" : "选择"} ${account.note || account.issuer || account.name}`
+            : `复制 ${account.note || account.issuer || account.name} 的验证码`
+        }
+        selected={Boolean(selectionMode && selected)}
+        pressed={selectionMode ? Boolean(selected) : undefined}
         interactive
         activatorRef={setActivatorNodeRef}
         activatorProps={sortable ? { ...attributes, ...listeners } : undefined}
@@ -113,6 +129,8 @@ export function CodeCell({
           copied={copied}
           copyError={copyError}
           viewMode={viewMode}
+          selectionMode={selectionMode}
+          selected={selected}
           onDetailClick={handleDetailClick}
           onRefresh={handleRefresh}
         />

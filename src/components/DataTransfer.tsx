@@ -8,7 +8,6 @@ import {
 import { usePlatform } from "@/platform/context";
 import type { AccountData, NewAccountInput, VaultGroup } from "@/lib/types";
 import { ImportPreview } from "./ImportPreview";
-import { ImportDone } from "./ImportDone";
 import { TransferMenu } from "./TransferMenu";
 
 interface DataTransferProps {
@@ -20,8 +19,7 @@ interface DataTransferProps {
 
 type ViewStep =
   | { kind: "menu" }
-  | { kind: "preview"; fresh: NewAccountInput[]; groups: VaultGroup[]; dupes: number }
-  | { kind: "done"; count: number };
+  | { kind: "preview"; fresh: NewAccountInput[]; groups: VaultGroup[]; dupes: number };
 
 export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTransferProps) {
   const platform = usePlatform();
@@ -112,10 +110,10 @@ export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTrans
     }
   }, [processImportText, platform]);
 
+  // 导入完成后由 store 关闭数据管理并给出提示，直接回到验证码列表。
   const handleConfirmImport = useCallback(() => {
     if (view.kind !== "preview") return;
     onImport(view.fresh, view.groups);
-    setView({ kind: "done", count: view.fresh.length });
   }, [view, onImport]);
 
   const handleCancelPreview = useCallback(() => {
@@ -132,10 +130,6 @@ export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTrans
         onConfirm={handleConfirmImport}
       />
     );
-  }
-
-  if (view.kind === "done") {
-    return <ImportDone count={view.count} onDone={onCancel} />;
   }
 
   return (
