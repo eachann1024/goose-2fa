@@ -3,9 +3,12 @@ import argparse
 import base64
 import concurrent.futures
 import datetime
+import hashlib
 import json
 import os
+import random
 import re
+import socket
 import subprocess
 import sys
 import time
@@ -21,6 +24,11 @@ VERSIONED = re.compile(
 DATED = re.compile(r'^## (?P<date>\d{4}-\d{2}-\d{2})(?:\s|$)', re.M)
 HEADING = re.compile(r'^#{1,6}\s+\S', re.M)
 ITEM = re.compile(r'^\s*(?:[-*•]|\d+\.)\s+\S', re.M)
+HAN = re.compile(r'[\u4e00-\u9fff]')
+
+
+class RetryableError(RuntimeError):
+    """Transient error eligible for jittered retry (429, 5xx, or timeout)."""
 VERSION_FILES = ('package.json', 'plugin.json', 'utools/plugin.json')
 API = 'https://api.deepseek.com/chat/completions'
 LIMIT = 512 * 1024
@@ -131,6 +139,92 @@ def restore(section, translated):
     return ensure_structure(section, prefix + body + suffix)
 
 
+def split_sections(markdown):
+    return [part for part in re.split(r'(?=^## )', markdown, flags=re.M) if part]
+
+
+def section_key(section):
+    core = peel(section)[1]
+    if not core:
+        return ''
+    first_line = core.splitlines()[0].strip()
+    match = VERSIONED.match(first_line)
+    if match:
+        return f'v:{match["version"]}'
+    return f'h:{first_line}'
+
+
+def section_hash(core):
+    return hashlib.sha256(core.encode('utf-8')).hexdigest()
+
+
+def compute_section_hashes(markdown):
+    sections = split_sections(markdown)
+    keys = [section_key(section) for section in sections]
+    counts = {}
+    for key in keys:
+        if key:
+            counts[key] = counts.get(key, 0) + 1
+    hashes = {}
+    for key, section in zip(keys, sections):
+        if key and counts.get(key) == 1:
+            core = peel(section)[1]
+            if core:
+                hashes[key] = section_hash(core)
+    return hashes
+
+
+def parse_cached_sections(cached_feed):
+    if not cached_feed:
+        return {}, {}
+    try:
+        saved = json.loads(cached_feed)
+    except (json.JSONDecodeError, TypeError):
+        return {}, {}
+    if not isinstance(saved, dict) or saved.get('schema') != 1 or not isinstance(saved.get('markdown'), str):
+        return {}, {}
+    saved_sections = split_sections(saved['markdown'])
+    keys = [section_key(sec) for sec in saved_sections]
+    counts = {}
+    for key in keys:
+        if key:
+            counts[key] = counts.get(key, 0) + 1
+    by_key = {}
+    for key, sec in zip(keys, saved_sections):
+        if key and counts.get(key) == 1:
+            by_key[key] = sec
+    raw_hashes = saved.get('section_hashes')
+    saved_hashes = raw_hashes if isinstance(raw_hashes, dict) else {}
+    return by_key, saved_hashes
+
+
+def reusable_translation(section, key, cached_by_key, saved_hashes):
+    if not key or key not in cached_by_key:
+        return None
+    core = peel(section)[1]
+    if not core:
+        return None
+    cached_sec = cached_by_key[key]
+    cached_core = peel(cached_sec)[1]
+    if not cached_core or not HAN.search(cached_core):
+        return None
+    source_unchanged = saved_hashes.get(key) == section_hash(core) or cached_core == core
+    if not source_unchanged:
+        return None
+    try:
+        return restore(section, cached_core)
+    except ValueError:
+        return None
+
+
+def is_timeout_error(error):
+    if isinstance(error, (TimeoutError, socket.timeout)):
+        return True
+    if isinstance(error, urllib.error.URLError):
+        return is_timeout_error(error.reason) or 'timed out' in str(error.reason).lower()
+    return False
+
+
 def request_translation(key, markdown):
     payload = json.dumps({
         'model': 'deepseek-chat', 'temperature': 0, 'max_tokens': 8192,
@@ -144,9 +238,17 @@ def request_translation(key, markdown):
             raw = response.read().decode()
     except urllib.error.HTTPError as error:
         detail = error.read().decode('utf-8', 'replace')[:300]
-        raise RuntimeError(f'DeepSeek API returned HTTP {error.code}: {detail}') from None
+        message = f'DeepSeek API returned HTTP {error.code}: {detail}'
+        if error.code == 429 or 500 <= error.code < 600:
+            raise RetryableError(message) from None
+        raise RuntimeError(message) from None
+    except (TimeoutError, socket.timeout) as error:
+        raise RetryableError(f'DeepSeek API request timed out: {error}') from None
     except urllib.error.URLError as error:
-        raise RuntimeError(f'DeepSeek API request failed: {error.reason}') from None
+        message = f'DeepSeek API request failed: {error.reason}'
+        if is_timeout_error(error):
+            raise RetryableError(message) from None
+        raise RuntimeError(message) from None
     try:
         choice = json.loads(raw)['choices'][0]
         content, reason = choice['message']['content'], choice.get('finish_reason')
@@ -160,16 +262,34 @@ def request_translation(key, markdown):
     return content
 
 
-def translate(markdown, mock):
-    sections = [part for part in re.split(r'(?=^## )', markdown, flags=re.M) if part]
+def translate(markdown, mock, cached_feed=None):
+    sections = split_sections(markdown)
     if not sections:
         raise ValueError('CHANGELOG.md is empty')
-    key = '' if mock else os.environ.get('DEEPSEEK_API_KEY', '').strip()
-    if not mock and not key:
+    cached_by_key, saved_hashes = parse_cached_sections(cached_feed)
+    keys = [section_key(section) for section in sections]
+    key_counts = {}
+    for key_name in keys:
+        if key_name:
+            key_counts[key_name] = key_counts.get(key_name, 0) + 1
+    reused = {}
+    for index, (section, key_name) in enumerate(zip(sections, keys)):
+        if key_name and key_counts.get(key_name) == 1:
+            cached = reusable_translation(section, key_name, cached_by_key, saved_hashes)
+            if cached is not None:
+                reused[index] = cached
+    needs_api = not mock and any(
+        index not in reused and peel(section)[1]
+        for index, section in enumerate(sections)
+    )
+    key = '' if not needs_api else os.environ.get('DEEPSEEK_API_KEY', '').strip()
+    if needs_api and not key:
         raise RuntimeError('DEEPSEEK_API_KEY is not set')
     total = len(sections)
 
     def translate_section(index, section):
+        if index - 1 in reused:
+            return reused[index - 1]
         core = peel(section)[1]
         if mock or not core:
             return restore(section, core) if core else section
@@ -177,12 +297,15 @@ def translate(markdown, mock):
         for attempt in range(4):
             try:
                 return restore(section, request_translation(key, core))
-            except Exception as error:
+            except RetryableError as error:
                 last = error
                 if attempt == 3:
                     raise RuntimeError(
                         f'CHANGELOG section {index}/{total}: failed after 3 retries: {redact(last)}') from None
-                time.sleep(2 ** attempt)
+                time.sleep((2 ** attempt) * random.uniform(0.5, 1.5))
+            except Exception as error:
+                raise RuntimeError(
+                    f'CHANGELOG section {index}/{total}: {redact(error)}') from None
 
     if mock or total <= 1:
         pieces = [translate_section(index, section) for index, section in enumerate(sections, 1)]
@@ -192,9 +315,11 @@ def translate(markdown, mock):
             pieces = [future.result() for future in futures]
     return ensure_structure(markdown, ''.join(pieces))
 
-def render(version, date, markdown):
-    content = json.dumps({'schema': 1, 'version': version, 'date': date, 'markdown': markdown},
-                         ensure_ascii=False, indent=2) + '\n'
+def render(version, date, markdown, section_hashes=None):
+    payload = {'schema': 1, 'version': version, 'date': date, 'markdown': markdown}
+    if section_hashes is not None:
+        payload['section_hashes'] = section_hashes
+    content = json.dumps(payload, ensure_ascii=False, indent=2) + '\n'
     if len(content.encode()) > LIMIT:
         raise ValueError('The public update feed exceeds its size limit')
     return content
@@ -239,12 +364,13 @@ def published_text(repo):
     return base64.b64decode(current['content']).decode('utf-8'), current.get('sha')
 
 
-def publish(repo, content, version):
+def publish(repo, content, version, loaded=None):
     if not os.environ.get('GH_TOKEN', '').strip():
         raise RuntimeError('GH_TOKEN is not set')
     if not re.fullmatch(r'[\w.-]+/[\w.-]+', repo):
         raise ValueError('Invalid repository')
-    loaded = published_text(repo)
+    if loaded is None:
+        loaded = published_text(repo)
     previous, sha = loaded if loaded else (None, None)
     action = decide(content, previous)
     if action != 'publish':
@@ -280,18 +406,27 @@ def main():
         raise RuntimeError('mock translation cannot publish; pass --dry-run')
     markdown = Path(CHANGELOG).read_text(encoding='utf-8')
     version, date = feed_identity(markdown)
-    translated = translate(markdown, args.mock_translation)
-    if Path(CHANGELOG).read_text(encoding='utf-8') != markdown:
-        raise RuntimeError('CHANGELOG.md changed while preparing the feed; retry')
-    content = render(version, date, translated)
     if args.dry_run:
         previous = Path(FEED).read_text(encoding='utf-8') if Path(FEED).is_file() else None
+        loaded = None
+    else:
+        repo = os.environ.get('GH_REPO', '').strip()
+        if not repo:
+            raise RuntimeError('GH_REPO is not set')
+        if not os.environ.get('GH_TOKEN', '').strip():
+            raise RuntimeError('GH_TOKEN is not set')
+        if not re.fullmatch(r'[\w.-]+/[\w.-]+', repo):
+            raise ValueError('Invalid repository')
+        loaded = published_text(repo)
+        previous = loaded[0] if loaded else (Path(FEED).read_text(encoding='utf-8') if Path(FEED).is_file() else None)
+    translated = translate(markdown, args.mock_translation, cached_feed=previous)
+    if Path(CHANGELOG).read_text(encoding='utf-8') != markdown:
+        raise RuntimeError('CHANGELOG.md changed while preparing the feed; retry')
+    content = render(version, date, translated, section_hashes=compute_section_hashes(markdown))
+    if args.dry_run:
         shape(content, decide(content, previous))
         return
-    repo = os.environ.get('GH_REPO', '').strip()
-    if not repo:
-        raise RuntimeError('GH_REPO is not set')
-    publish(repo, content, version)
+    publish(repo, content, version, loaded=loaded)
 
 
 if __name__ == '__main__':
