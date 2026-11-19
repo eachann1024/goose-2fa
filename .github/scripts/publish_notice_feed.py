@@ -143,7 +143,7 @@ def split_sections(markdown):
     return [part for part in re.split(r'(?=^## )', markdown, flags=re.M) if part]
 
 
-def section_key(section):
+def section_key(section, index):
     core = peel(section)[1]
     if not core:
         return ''
@@ -151,7 +151,10 @@ def section_key(section):
     match = VERSIONED.match(first_line)
     if match:
         return f'v:{match["version"]}'
-    return f'h:{first_line}'
+    dated = DATED.match(first_line)
+    if dated:
+        return f'd:{dated["date"]}'
+    return f'pos:{index}'
 
 
 def section_hash(core):
@@ -160,7 +163,7 @@ def section_hash(core):
 
 def compute_section_hashes(markdown):
     sections = split_sections(markdown)
-    keys = [section_key(section) for section in sections]
+    keys = [section_key(section, index) for index, section in enumerate(sections)]
     counts = {}
     for key in keys:
         if key:
@@ -184,7 +187,7 @@ def parse_cached_sections(cached_feed):
     if not isinstance(saved, dict) or saved.get('schema') != 1 or not isinstance(saved.get('markdown'), str):
         return {}, {}
     saved_sections = split_sections(saved['markdown'])
-    keys = [section_key(sec) for sec in saved_sections]
+    keys = [section_key(sec, index) for index, sec in enumerate(saved_sections)]
     counts = {}
     for key in keys:
         if key:
@@ -267,7 +270,7 @@ def translate(markdown, mock, cached_feed=None):
     if not sections:
         raise ValueError('CHANGELOG.md is empty')
     cached_by_key, saved_hashes = parse_cached_sections(cached_feed)
-    keys = [section_key(section) for section in sections]
+    keys = [section_key(section, index) for index, section in enumerate(sections)]
     key_counts = {}
     for key_name in keys:
         if key_name:
@@ -297,7 +300,7 @@ def translate(markdown, mock, cached_feed=None):
         for attempt in range(4):
             try:
                 return restore(section, request_translation(key, core))
-            except RetryableError as error:
+            except (RetryableError, ValueError) as error:
                 last = error
                 if attempt == 3:
                     raise RuntimeError(
