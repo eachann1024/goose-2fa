@@ -97,11 +97,15 @@ def unwrap(text):
     return fenced.group(1) if fenced else body
 
 
+ATX_HEADING = re.compile(r'^[ ]{0,3}(#{1,6})(?:[ \t]|$)')
+
+
 def line_kind(line):
     if not line.strip():
         return 'blank'
-    if HEADING.match(line):
-        return f'heading:{len(line) - len(line.lstrip("#"))}'
+    match = ATX_HEADING.match(line)
+    if match:
+        return f'heading:{len(match.group(1))}'
     return 'list' if ITEM.match(line) else 'text'
 
 
@@ -156,7 +160,7 @@ def section_key(section, index):
     dated = DATED.match(first_line)
     if dated:
         return f'd:{dated["date"]}'
-    if index == 0 and not first_line.startswith('## '):
+    if index == 0 and re.match(r'^#[ \t]+\S', first_line):
         return 'preamble'
     return ''
 
