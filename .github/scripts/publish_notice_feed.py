@@ -153,14 +153,14 @@ def section_key(section, index):
     core = peel(section)[1]
     if not core:
         return ''
-    first_line = core.splitlines()[0].strip()
-    match = VERSIONED.match(first_line)
+    raw_first = core.splitlines()[0]
+    match = VERSIONED.match(raw_first)
     if match:
         return f'v:{match["version"]}'
-    dated = DATED.match(first_line)
+    dated = DATED.match(raw_first)
     if dated:
         return f'd:{dated["date"]}'
-    if index == 0 and re.match(r'^#[ \t]+\S', first_line):
+    if index == 0 and re.match(r'^[ ]{0,3}#[ \t]+\S', raw_first):
         return 'preamble'
     return ''
 
