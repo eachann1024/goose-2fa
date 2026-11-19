@@ -100,7 +100,9 @@ def unwrap(text):
 def line_kind(line):
     if not line.strip():
         return 'blank'
-    return 'heading' if HEADING.match(line) else 'list' if ITEM.match(line) else 'text'
+    if HEADING.match(line):
+        return f'heading:{len(line) - len(line.lstrip("#"))}'
+    return 'list' if ITEM.match(line) else 'text'
 
 
 def ensure_structure(source, translated):
@@ -154,7 +156,9 @@ def section_key(section, index):
     dated = DATED.match(first_line)
     if dated:
         return f'd:{dated["date"]}'
-    return f'pos:{index}'
+    if index == 0 and not first_line.startswith('## '):
+        return 'preamble'
+    return ''
 
 
 def section_hash(core):
