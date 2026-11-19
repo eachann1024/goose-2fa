@@ -1,6 +1,7 @@
 """Publish CHANGELOG.md on main as the public update-notice feed."""
 import argparse
 import base64
+import concurrent.futures
 import datetime
 import json
 import os
@@ -166,24 +167,29 @@ def translate(markdown, mock):
     key = '' if mock else os.environ.get('DEEPSEEK_API_KEY', '').strip()
     if not mock and not key:
         raise RuntimeError('DEEPSEEK_API_KEY is not set')
-    pieces = []
     total = len(sections)
-    for index, section in enumerate(sections, 1):
+
+    def translate_section(index, section):
         core = peel(section)[1]
         if mock or not core:
-            pieces.append(restore(section, core) if core else section)
-            continue
+            return restore(section, core) if core else section
         last = None
         for attempt in range(4):
             try:
-                pieces.append(restore(section, request_translation(key, core)))
-                break
+                return restore(section, request_translation(key, core))
             except Exception as error:
                 last = error
                 if attempt == 3:
                     raise RuntimeError(
                         f'CHANGELOG section {index}/{total}: failed after 3 retries: {redact(last)}') from None
                 time.sleep(2 ** attempt)
+
+    if mock or total <= 1:
+        pieces = [translate_section(index, section) for index, section in enumerate(sections, 1)]
+    else:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, total)) as pool:
+            futures = [pool.submit(translate_section, index, section) for index, section in enumerate(sections, 1)]
+            pieces = [future.result() for future in futures]
     return ensure_structure(markdown, ''.join(pieces))
 
 def render(version, date, markdown):
@@ -245,14 +251,10 @@ def publish(repo, content, version):
         print('Published update feed is already current.' if action == 'unchanged'
               else 'Latest changelog version moved backwards; keep the published feed intact.')
         return
-    fresh = published_text(repo)
-    fresh_sha = fresh[1] if fresh else None
-    if fresh_sha != sha:
-        raise RuntimeError('Published update feed changed while preparing it; retry')
     payload = {'message': f'chore: sync published update notices for v{version}', 'branch': 'main',
                'content': base64.b64encode(content.encode()).decode()}
-    if fresh_sha:
-        payload['sha'] = fresh_sha
+    if sha:
+        payload['sha'] = sha
     api(repo, f'contents/{FEED}', payload)
     print(f'Published update feed now follows v{version}.')
 
