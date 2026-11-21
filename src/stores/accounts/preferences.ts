@@ -1,5 +1,6 @@
 import { canEditVault } from "./write-guard";
 import { normalizeGroupOrder } from "@/lib/groups";
+import { trackViewLayout } from "@/lib/analytics";
 import { applyAccentColor, DEFAULT_ACCENT_COLOR, normalizeAccentColor, type AccentColor } from "@/lib/accent-color";
 import type { SyncPreferences } from "@/lib/data-transfer";
 import type { AccountsState, StoreGet, StoreSet, StoreServices, ViewMode } from "./store-types";
@@ -75,6 +76,7 @@ export function createPreferenceActions(set: StoreSet, get: StoreGet, services: 
   return {
     setViewMode: (mode) => {
       if (!canEditVault(get())) return;
+      if (mode !== get().viewMode) trackViewLayout(mode);
       localStorage.setItem(VIEW_MODE_KEY, mode);
       set({ viewMode: mode });
       services.scheduleSync();

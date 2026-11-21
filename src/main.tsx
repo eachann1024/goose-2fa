@@ -1,9 +1,10 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
-import { initPlatform } from "@/stores/useAccounts";
+import { initPlatform, useAccounts } from "@/stores/useAccounts";
 import { PlatformProvider } from "@/platform/context";
 import type { PlatformAdapter } from "@/platform/types";
+import { initAppTelemetry } from "@/lib/analytics";
 import "./index.css";
 
 async function createAdapter(): Promise<PlatformAdapter> {
@@ -18,6 +19,7 @@ async function createAdapter(): Promise<PlatformAdapter> {
 async function bootstrap() {
   const adapter = await createAdapter();
   initPlatform(adapter);
+  initAppTelemetry(() => (useAccounts.getState().isDark ? "dark" : "light"));
 
   createRoot(document.getElementById("root")!).render(
     <StrictMode>

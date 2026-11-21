@@ -1,5 +1,6 @@
 import { snapshotPreferences } from "./preferences";
 import { exportAsSyncJson } from "@/lib/data-transfer";
+import { trackError, trackSync } from "@/lib/analytics";
 import { isSameSyncContent, parseSyncLockInfo, syncLockPath } from "../../../shared/sync-protocol";
 import type { StoreRuntime, StoreServices, StoreAccess } from "./store-types";
 
@@ -28,15 +29,18 @@ export function createSyncWriter(runtime: StoreRuntime, services: StoreServices,
     const current = store.getState();
     if (!current.syncEnabled || current.syncPath !== path) return;
     if (source.status === "unresolved") {
+      trackSync(false);
       services.failSync("数据源路径不是解析后的真实路径，已停止写入以免出现两把锁。");
       return;
     }
     if (source.status === "invalid" || source.status === "error") {
+      trackSync(false);
       services.failSync("数据源文件无法解析，已停止写入以免覆盖原文件。");
       return;
     }
     if (services.isMissingFile(source.status)) {
       if (!approvingCreate && !approvingOverwrite) {
+        trackSync(false);
         services.failSync("数据源文件不存在，已停止写入。", {
           syncNeedsCreate: true,
         });
@@ -44,6 +48,7 @@ export function createSyncWriter(runtime: StoreRuntime, services: StoreServices,
       }
     } else if (!approvingOverwrite && source.status === "ok") {
       if (!runtime.syncBaseline || runtime.syncBaseline.path !== path) {
+        trackSync(false);
         store.setState({
           syncStatus: "conflict",
           syncError: "尚未读取过该数据源文件，已停止写入。",
@@ -52,6 +57,7 @@ export function createSyncWriter(runtime: StoreRuntime, services: StoreServices,
         return;
       }
       if (!isSameSyncContent(source.content, runtime.syncBaseline.content)) {
+        trackSync(false);
         services.applySourceSnapshot(path, source, {
           status: "conflict",
           error: "数据源文件已被其他程序修改，本次改动没有写入。已重新载入文件内容，请确认后重试。",
@@ -82,10 +88,12 @@ export function createSyncWriter(runtime: StoreRuntime, services: StoreServices,
             runtime.syncBaseline = { path, content: serialized, mtimeMs: fresh.mtimeMs, size: fresh.size };
             runtime.lastSyncFingerprint = fingerprint;
             runtime.writeApproval = null;
+            trackSync(true);
             store.setState({ syncStatus: "success", syncError: null, syncNotice: null, syncNeedsCreate: false });
             return;
           }
           if (fresh.status === "ok") {
+            trackSync(false);
             services.applySourceSnapshot(path, fresh, {
               status: "conflict",
               error: "数据源文件在写入前被其他程序修改，本次改动没有写入。已重新载入文件内容，请确认后重试。",
@@ -93,14 +101,17 @@ export function createSyncWriter(runtime: StoreRuntime, services: StoreServices,
             });
             return;
           }
+          trackSync(false);
           services.failSync("数据源文件在写入前消失或不可读，已停止写入。请确认路径后重试。");
           return;
         }
         if (result.reason === "unresolved") {
+          trackSync(false);
           services.failSync("数据源路径不是解析后的真实路径，已停止写入以免出现两把锁。");
           return;
         }
         if (result.reason === "locked") {
+          trackSync(false);
           const lock = parseSyncLockInfo(result.lockContent);
           store.setState({ syncLockHeld: lock });
           services.failSync(services.syncLockMessage(lock));
@@ -112,6 +123,7 @@ export function createSyncWriter(runtime: StoreRuntime, services: StoreServices,
       runtime.writeApproval = null;
       runtime.syncBaseline = { path, content: serialized, mtimeMs: result.mtimeMs, size: result.size };
       runtime.syncWriteVersion += 1;
+      trackSync(true);
       store.setState({
         syncStatus: "success",
         syncError: null,
@@ -120,6 +132,8 @@ export function createSyncWriter(runtime: StoreRuntime, services: StoreServices,
         syncLockHeld: null,
       });
     } catch (error) {
+      trackError(error, "sync");
+      trackSync(false);
       console.error("[goose-2fa] sync write failed:", error);
       const after = store.getState();
       if (epoch === runtime.syncEpoch && after.syncEnabled && after.syncPath === path) {

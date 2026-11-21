@@ -3,6 +3,7 @@ import { useAccounts } from "@/stores/useAccounts";
 import { usePlatform } from "@/platform/context";
 import { Header } from "@/components/Header";
 import { FeedbackSheet } from "@/components/FeedbackSheet";
+import { PrivacyDialog } from "@/components/PrivacyDialog";
 import { CodeGrid } from "@/components/CodeGrid";
 import { AddAccount } from "@/components/AddAccount";
 import { DataTransfer } from "@/components/DataTransfer";
@@ -13,11 +14,13 @@ import { Toast } from "@/components/Toast";
 import { DetailLayer } from "@/components/DetailLayer";
 import type { AccountData } from "@/lib/types";
 import { checkFeedbackUnread } from "@/lib/feedback";
+import { resolveTelemetryModule, setTelemetryModule, trackAccountCount } from "@/lib/analytics";
 import { useHostTheme, usePluginSession } from "@/lib/use-host-session";
 import { listFaceClass, type ViewState } from "@/lib/view-transition";
 
 export default function App() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const platform = usePlatform();
   const accounts = useAccounts((s) => s.accounts);
   const trash = useAccounts((s) => s.trash);
@@ -73,6 +76,7 @@ export default function App() {
   const [quickQuery, setQuickQuery] = useState("");
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const focusReturnRef = useRef<HTMLElement | null>(null);
+  const initialCountTrackedRef = useRef(false);
 
   // 与 index.css 景深淡入的时长 + 延迟对齐
   const transitionDelay = (phase: "open" | "close") =>
@@ -82,6 +86,20 @@ export default function App() {
     load();
     document.documentElement.classList.toggle("dark", useAccounts.getState().isDark);
   }, [load]);
+
+  useEffect(() => {
+    if (loadStatus === "ready" && !initialCountTrackedRef.current) {
+      initialCountTrackedRef.current = true;
+      trackAccountCount(accounts.length);
+    }
+  }, [loadStatus, accounts.length]);
+
+  useEffect(() => {
+    setTelemetryModule(resolveTelemetryModule({
+      loadStatus, quickMode, showTrash, showDataTransfer, showAddForm, privacyOpen, feedbackOpen,
+      hasDetail: detailAccount !== null,
+    }));
+  }, [loadStatus, quickMode, showTrash, showDataTransfer, showAddForm, privacyOpen, feedbackOpen, detailAccount]);
 
   useHostTheme(syncSystemDark);
   usePluginSession(load, setSearchQuery, setQuickQuery, setQuickMode);
@@ -211,6 +229,7 @@ export default function App() {
             onManageData={() => setShowDataTransfer(true)}
             onTrash={() => setShowTrash(true)}
             onFeedback={() => setFeedbackOpen(true)}
+            onPrivacy={() => setPrivacyOpen(true)}
             themeMode={isThemeLocked ? (isDark ? "dark" : "light") : "system"}
             onThemeModeChange={setThemeMode}
             accentColor={accentColor}
@@ -258,6 +277,7 @@ export default function App() {
         onUpdateGroup={updateAccountGroup}
       />
       {feedbackOpen ? <FeedbackSheet onClose={() => setFeedbackOpen(false)} /> : null}
+      {privacyOpen ? <PrivacyDialog onClose={() => setPrivacyOpen(false)} /> : null}
     </div>
     </Activity>
     {loadStatus === "ready" && !quickMode && !showTrash && <Toast notice={notice} onDismiss={dismissNotice} raised={editMode} />}

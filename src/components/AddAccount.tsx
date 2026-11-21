@@ -5,6 +5,7 @@ import {
   ScanLine,
 } from "lucide-react";
 import { parseSecretInput } from "@/lib/secret-input";
+import { trackAccountAdd } from "@/lib/analytics";
 import { useAccountImport } from "./useAccountImport";
 import { Input } from "@/components/ui/input";
 import type { NewAccountInput, ParsedOtpAuth } from "@/lib/types";
@@ -56,6 +57,7 @@ export function AddAccount({ onAdd, onBatchAdd, onCancel, initialAction }: AddAc
       return;
     }
 
+    trackAccountAdd(importedAccount ? "uri" : "manual");
     onAdd({
       issuer: "",
       type: "totp",

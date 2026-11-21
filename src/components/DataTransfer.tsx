@@ -1,10 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
+  detectImportFormat,
   exportAsJson,
   exportAsUris,
   parseImportBundle,
   deduplicateImports,
 } from "@/lib/data-transfer";
+import { trackError, trackExport, trackImport, type ImportFormat } from "@/lib/analytics";
 import { usePlatform } from "@/platform/context";
 import type { AccountData, NewAccountInput, VaultGroup } from "@/lib/types";
 import { ImportPreview } from "./ImportPreview";
@@ -19,7 +21,7 @@ interface DataTransferProps {
 
 type ViewStep =
   | { kind: "menu" }
-  | { kind: "preview"; fresh: NewAccountInput[]; groups: VaultGroup[]; dupes: number };
+  | { kind: "preview"; fresh: NewAccountInput[]; groups: VaultGroup[]; dupes: number; format: ImportFormat };
 
 export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTransferProps) {
   const platform = usePlatform();
@@ -51,8 +53,12 @@ export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTrans
         json,
         `goose-2fa-backup-${new Date().toISOString().slice(0, 10)}.json`,
       );
-      if (ok) flashExported();
-    } catch {
+      if (ok) {
+        trackExport("json");
+        flashExported();
+      }
+    } catch (err) {
+      trackError(err, "transfer");
       setError("备份保存失败，请检查文件权限后重试");
     }
   }, [accounts, flashExported, groups, platform]);
@@ -62,8 +68,10 @@ export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTrans
     try {
       const uris = exportAsUris(accounts);
       await platform.copyText(uris);
+      trackExport("uri");
       flashCopied();
-    } catch {
+    } catch (err) {
+      trackError(err, "transfer");
       setError("复制失败，请检查剪贴板权限后重试");
     }
   }, [accounts, flashCopied, platform]);
@@ -71,6 +79,7 @@ export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTrans
   const processImportText = useCallback(
     (text: string) => {
       setError("");
+      const format = detectImportFormat(text);
       const bundle = parseImportBundle(text);
       if (!bundle || bundle.accounts.length === 0) {
         setError("未找到有效的账户数据");
@@ -81,7 +90,7 @@ export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTrans
         setError(`所有 ${dupeCount} 个账户已存在`);
         return;
       }
-      setView({ kind: "preview", fresh: newAccounts, groups: bundle.groups, dupes: dupeCount });
+      setView({ kind: "preview", fresh: newAccounts, groups: bundle.groups, dupes: dupeCount, format });
     },
     [accounts],
   );
@@ -91,7 +100,8 @@ export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTrans
     try {
       const content = await platform.readFromFile();
       if (content) processImportText(content);
-    } catch {
+    } catch (err) {
+      trackError(err, "transfer");
       setError("读取备份文件失败");
     }
   }, [processImportText, platform]);
@@ -105,7 +115,8 @@ export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTrans
         return;
       }
       processImportText(text);
-    } catch {
+    } catch (err) {
+      trackError(err, "transfer");
       setError("读取剪贴板失败");
     }
   }, [processImportText, platform]);
@@ -113,6 +124,7 @@ export function DataTransfer({ accounts, groups, onImport, onCancel }: DataTrans
   // 导入完成后由 store 关闭数据管理并给出提示，直接回到验证码列表。
   const handleConfirmImport = useCallback(() => {
     if (view.kind !== "preview") return;
+    trackImport(view.format, view.fresh.length);
     onImport(view.fresh, view.groups);
   }, [view, onImport]);
 

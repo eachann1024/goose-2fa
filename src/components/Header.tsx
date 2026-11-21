@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, type CSSProperties } from "react";
-import { Search, Plus, X, MoreHorizontal, ArrowDownUp, Trash2, ListChecks } from "lucide-react";
+import { Search, Plus, X, MoreHorizontal, ArrowDownUp, Trash2, ListChecks, ShieldCheck } from "lucide-react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupButton } from "@/components/ui/input-group";
 import type { ThemeMode, ViewMode } from "@/stores/useAccounts";
@@ -29,6 +29,7 @@ interface HeaderProps {
   onManageData: () => void;
   onTrash: () => void;
   onFeedback: () => void;
+  onPrivacy: () => void;
   themeMode: ThemeMode;
   batchMode: boolean;
   onThemeModeChange: (mode: ThemeMode) => void;
@@ -48,6 +49,7 @@ export function Header({
   onManageData,
   onTrash,
   onFeedback,
+  onPrivacy,
   themeMode,
   onThemeModeChange,
   accentColor,
@@ -222,6 +224,11 @@ export function Header({
                 {trashCount > 99 ? "99+" : trashCount}
               </span>
             )}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onPrivacy} className="gap-2.5 px-2 py-1.5 text-[13px]">
+            <MenuGlyph><ShieldCheck className={GLYPH} /></MenuGlyph>
+            隐私与统计
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -4,6 +4,9 @@ import { parseGoogleAuthMigration } from "../google-auth-migration";
 import type { NewAccountInput, VaultGroup } from "../types";
 import { normalizeGroups, normalizeAccounts } from "./normalization";
 import { parseJsonAccounts } from "./json-import";
+import { tryGoose2fa, try2FAS, tryAegis } from "./adapters/object-formats";
+import { tryAndOTP, tryRaivo, tryFreeOTP } from "./adapters/array-formats";
+import type { ImportFormat } from "../analytics";
 
 // ---- Main import parser ----
 
@@ -98,4 +101,35 @@ export function parseImportBundle(text: string): ImportBundle | null {
   }
   const accounts = parseImportData(trimmed);
   return accounts ? { accounts, groups: [] } : null;
+}
+
+/** 仅识别导入文本格式枚举，不返回任何账户数据。 */
+export function detectImportFormat(text: string): ImportFormat {
+  const trimmed = text.trim();
+  if (!trimmed) return "unknown";
+  if (trimmed.startsWith("otpauth-migration://")) return "otpauth-migration";
+  if (trimmed.startsWith("otpauth://")) return "otpauth";
+  try {
+    const json = JSON.parse(trimmed);
+    if (typeof json === "object" && json !== null && !Array.isArray(json)) {
+      const obj = json as Record<string, unknown>;
+      if (tryGoose2fa(obj)?.length) return "goose-2fa";
+      if (try2FAS(obj)?.length) return "2fas";
+      if (tryAegis(obj)?.length) return "aegis";
+      return "json";
+    }
+    if (Array.isArray(json) && json.length > 0) {
+      if (tryAndOTP(json)?.length) return "andotp";
+      if (tryRaivo(json)?.length) return "raivo";
+      if (tryFreeOTP(json)?.length) return "freeotp";
+      return "json";
+    }
+  } catch {
+    // 非 JSON，按行判断 URI 或明文密钥
+  }
+  const lines = trimmed.split(/[\n\r]+/).map((l) => l.trim()).filter(Boolean);
+  if (lines.some((l) => l.startsWith("otpauth-migration://"))) return "otpauth-migration";
+  if (lines.some((l) => l.startsWith("otpauth://"))) return "otpauth";
+  if (lines.some((l) => Boolean(parseSecretInput(l)))) return "secret";
+  return "unknown";
 }

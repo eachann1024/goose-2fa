@@ -1,4 +1,5 @@
 import { canEditVault } from "./write-guard";
+import { trackAccountDelete } from "@/lib/analytics";
 import type { AccountData } from "@/lib/types";
 import type { AccountsState, StoreGet, StoreSet, StoreServices } from "./store-types";
 
@@ -10,6 +11,7 @@ export function createTrashActions(set: StoreSet, get: StoreGet, services: Store
       const next = get().accounts.filter((a) => a.id !== id);
       services.persist(next);
       if (account) {
+        trackAccountDelete();
         const trashed = { ...account, deletedAt: Date.now() };
         const nextTrash = [...get().trash, trashed];
         services.persistTrash(nextTrash);
@@ -33,6 +35,7 @@ export function createTrashActions(set: StoreSet, get: StoreGet, services: Store
         set({ editMode: false });
         return;
       }
+      trackAccountDelete();
       const deletedAt = Date.now();
       const nextTrash = [...get().trash, ...removed.map((account) => ({ ...account, deletedAt }))];
       const saved = services.persist(next);

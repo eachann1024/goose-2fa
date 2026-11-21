@@ -48,6 +48,8 @@ interface Goose2FA {
   typeString?: (text: string) => boolean;
   /** 退出当前插件回到 uTools 主搜索框 */
   outPlugin?: () => void;
+  /** 读取运行环境的系统版本与 CPU 架构（用于匿名遥测信封） */
+  getSystemInfo?: () => { osVersion: string; arch: string };
 }
 
 interface Window {

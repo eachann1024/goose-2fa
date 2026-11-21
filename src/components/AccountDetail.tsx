@@ -3,6 +3,7 @@ import { ArrowLeft, Check, Copy, KeyRound, QrCode, Trash2 } from "lucide-react";
 import { useOtpCode } from "@/hooks/useOtpCode";
 import { useTimerReady } from "@/hooks/useTimerReady";
 import { formatCode, generateHOTP, generateTOTP } from "@/lib/otp";
+import { trackCodeCopy } from "@/lib/analytics";
 import type { AccountData, VaultGroup } from "@/lib/types";
 import { EditableText } from "@/components/ui/editable-text";
 import { AccountMetadata } from "@/components/AccountMetadata";
@@ -72,6 +73,7 @@ export function AccountDetail({
       setCopyError(true);
       return;
     }
+    trackCodeCopy();
     setCopied(true);
     clearTimeout(copyTimerRef.current);
     copyTimerRef.current = setTimeout(() => setCopied(false), 1200);

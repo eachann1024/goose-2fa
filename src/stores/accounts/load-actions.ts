@@ -1,6 +1,7 @@
 import { pruneExpiredTrash } from "../../../shared/vault-ops";
 import { normalizeStoredAccounts } from "@/lib/account-validation";
 import { resolveSelectedGroup } from "@/lib/groups";
+import { trackError } from "@/lib/analytics";
 import type { AccountsState, StoreGet, StoreSet, StoreRuntime, StoreServices } from "./store-types";
 import { GROUP_KEY } from "./preferences";
 
@@ -76,6 +77,7 @@ export function createLoadActions(set: StoreSet, get: StoreGet, runtime: StoreRu
           services.startSyncWatch();
         }
       } catch (error) {
+        trackError(error, "vault");
         console.error("[goose-2fa] load failed:", error);
         set({
           loadStatus: "error", loadError: "无法读取原有账户，已有数据不会被覆盖。请重试。",

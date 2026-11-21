@@ -3,6 +3,7 @@ import { parseOtpAuthUri } from "@/lib/otp";
 import { parseSecretInput } from "@/lib/secret-input";
 import { parseGoogleAuthMigrationPayload } from "@/lib/google-auth-migration";
 import { readQRFromClipboard, decodeQRFromBase64 } from "@/lib/qr-decode";
+import { trackAccountAdd, trackError } from "@/lib/analytics";
 import { usePlatform } from "@/platform/context";
 import type { NewAccountInput } from "@/lib/types";
 
@@ -30,13 +31,14 @@ export function useAccountImport({ onAdd, onBatchAdd, onSecretInput, initialActi
 
   /** Try to parse any decoded content (text or QR result) into accounts. */
   const processDecodedContent = useCallback(
-    (content: string): boolean => {
+    (content: string, source: "scan" | "clipboard"): boolean => {
       const trimmed = content.trim();
 
       // 1. otpauth:// single URI
       if (trimmed.startsWith("otpauth://")) {
         const parsed = parseOtpAuthUri(trimmed);
         if (parsed) {
+          trackAccountAdd(source === "scan" ? "scan" : "uri");
           onAdd({ ...parsed });
           return true;
         }
@@ -53,6 +55,7 @@ export function useAccountImport({ onAdd, onBatchAdd, onSecretInput, initialActi
         }
         const entries = migration?.accounts;
         if (entries && entries.length > 0) {
+          trackAccountAdd(source === "scan" ? "scan" : "import");
           if (entries.length === 1) {
             onAdd(entries[0]!);
           } else if (onBatchAdd) {
@@ -92,20 +95,21 @@ export function useAccountImport({ onAdd, onBatchAdd, onSecretInput, initialActi
       // Try text content first
       if (clipText) {
         if (isStale()) return;
-        if (processDecodedContent(clipText)) return;
+        if (processDecodedContent(clipText, "clipboard")) return;
       }
 
       // Try QR code image from clipboard
       const qrResult = await readQRFromClipboard(platform);
       if (isStale()) return;
       if (qrResult) {
-        if (processDecodedContent(qrResult)) return;
+        if (processDecodedContent(qrResult, "scan")) return;
         setImportError("二维码内容不是有效的 OTP 数据");
         return;
       }
 
       setImportError("剪贴板中未找到有效内容 (支持 otpauth 链接、迁移码、二维码图片或 Base32 密钥)");
-    } catch {
+    } catch (error) {
+      trackError(error, "import");
       if (!isStale()) setImportError("读取剪贴板失败");
     }
   }, [processDecodedContent, platform]);
@@ -127,16 +131,18 @@ export function useAccountImport({ onAdd, onBatchAdd, onSecretInput, initialActi
         const qrResult = await decodeQRFromBase64(base64);
         if (isStale()) return;
         if (qrResult) {
-          if (!processDecodedContent(qrResult)) {
+          if (!processDecodedContent(qrResult, "scan")) {
             setImportError("截图中的二维码不是有效的 OTP 数据");
           }
         } else {
           setImportError("未在截图中检测到二维码");
         }
-      } catch {
+      } catch (error) {
+        trackError(error, "scan");
         if (!isStale()) setImportError("解析截图失败");
       }
-    } catch {
+    } catch (error) {
+      trackError(error, "scan");
       if (!isStale()) setImportError("截屏失败或被取消");
     }
   }, [processDecodedContent, platform]);

@@ -5,6 +5,7 @@ import { useOtpCode } from "@/hooks/useOtpCode";
 import { useTimerReady } from "@/hooks/useTimerReady";
 import { formatCode } from "@/lib/otp";
 import { filterAccounts } from "@/lib/search";
+import { trackCodeCopy } from "@/lib/analytics";
 import type { AccountData } from "@/lib/types";
 
 interface QuickCodeProps {
@@ -58,6 +59,7 @@ export function QuickCode({ accounts, initialQuery, onIncrement }: QuickCodeProp
         platform.showNotification(`已复制 ${account.note || account.issuer || account.name} 验证码`);
         platform.hideWindow();
       }
+      trackCodeCopy();
     } catch {
       setError("未能粘贴或复制验证码，请重试");
     } finally {

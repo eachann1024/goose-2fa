@@ -443,6 +443,16 @@ if (typeof window !== "undefined" && typeof utools !== "undefined") {
     outPlugin: () => {
       safeCall(utools?.outPlugin);
     },
+    getSystemInfo: () => {
+      try {
+        return {
+          osVersion: require("os").release(),
+          arch: process.arch,
+        };
+      } catch {
+        return { osVersion: "", arch: "" };
+      }
+    },
   };
 
   utools.onPluginEnter(({ code, type, payload }) => {

@@ -3,6 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useOtpCode } from "@/hooks/useOtpCode";
 import { generateTOTP } from "@/lib/otp";
+import { trackCodeCopy } from "@/lib/analytics";
 import type { AccountData } from "@/lib/types";
 import type { ViewMode } from "@/stores/useAccounts";
 
@@ -129,6 +130,7 @@ function LiveCodeCell({
       timeoutRef.current = setTimeout(() => setCopyError(false), 1800);
       return;
     }
+    trackCodeCopy();
     setCopied(true);
     timeoutRef.current = setTimeout(() => setCopied(false), 1200);
   }, [account, code, onCopy]);
