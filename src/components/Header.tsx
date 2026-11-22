@@ -5,6 +5,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupButton } from "
 import type { ThemeMode, ViewMode } from "@/stores/useAccounts";
 import { GLYPH, MenuGlyph, MenuSegmented, THEME_OPTIONS, VIEW_OPTIONS } from "./HeaderMenuParts";
 import { ACCENT_OPTIONS, type AccentColor } from "@/lib/accent-color";
+import { useAccounts } from "@/stores/useAccounts";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,7 +21,6 @@ import { FeedbackEntry } from "@/components/FeedbackEntry";
 
 interface HeaderProps {
   hasAccounts: boolean;
-  searchQuery: string;
   onSearchChange: (query: string) => void;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
@@ -40,7 +40,6 @@ interface HeaderProps {
 
 export function Header({
   hasAccounts,
-  searchQuery,
   onSearchChange,
   viewMode,
   onViewModeChange,
@@ -57,6 +56,7 @@ export function Header({
   trashCount,
   batchMode,
 }: HeaderProps) {
+  const searchQuery = useAccounts((state) => state.searchQuery);
   const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const currentAccent = ACCENT_OPTIONS.find((option) => option.value === accentColor);

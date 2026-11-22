@@ -1,16 +1,15 @@
 import { memo } from "react";
-import { useTimerReady } from "@/hooks/useTimerReady";
+import { useOtpLow } from "@/hooks/otp-clock";
 import { RefreshCw, Check, Info, PenLine } from "lucide-react";
 import { formatCode } from "@/lib/otp";
 import type { AccountData } from "@/lib/types";
 import type { ViewMode } from "@/stores/useAccounts";
 import { SelectionMark } from "./SelectionMark";
+import { OtpCountdown } from "./OtpCountdown";
 
 interface CellBodyProps {
   account: AccountData;
   code: string;
-  remaining: number;
-  period: number;
   copied: boolean;
   copyError?: boolean;
   viewMode: ViewMode;
@@ -28,8 +27,6 @@ const detailHit =
 export const CellBody = memo(function CellBody({
   account,
   code,
-  remaining,
-  period,
   copied,
   copyError,
   viewMode,
@@ -39,10 +36,9 @@ export const CellBody = memo(function CellBody({
   onDetailClick,
   onRefresh,
 }: CellBodyProps) {
-  const timerReady = useTimerReady(`${account.id}:${viewMode}`);
   const isTotp = account.type === "totp";
-  const isLow = isTotp && remaining <= 5;
-  const progress = isTotp ? remaining / period : 1;
+  const period = account.period || 30;
+  const isLow = useOtpLow(period, isTotp);
   const { title, subtitle } = cardLabels(account);
   const remark = account.remark?.trim() ?? "";
   const isList = viewMode === "list";
@@ -79,20 +75,7 @@ export const CellBody = memo(function CellBody({
         {selectionMode ? (
           <SelectionMark selected={selected ?? false} className="size-9" />
         ) : isTotp ? (
-          <div className="relative flex h-9 w-9 shrink-0 items-center justify-center">
-            <svg className="h-9 w-9 -rotate-90" viewBox="0 0 36 36">
-              <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="3" className="stroke-border-soft" />
-              <circle
-                cx="18" cy="18" r="15.5" fill="none" strokeWidth="3" strokeLinecap="round"
-                className={`timer-ring ${!timerReady || remaining === period ? "timer-reset" : ""} ${isLow ? "stroke-timer-low" : "stroke-accent"}`}
-                strokeDasharray={2 * Math.PI * 15.5}
-                style={{ strokeDashoffset: 2 * Math.PI * 15.5 * (1 - progress) }}
-              />
-            </svg>
-            <span className="absolute text-[10px] font-medium tabular-nums text-fg-faint">
-              {Math.ceil(remaining)}
-            </span>
-          </div>
+          <OtpCountdown period={period} variant="list" />
         ) : (
           <div className="flex shrink-0 items-center gap-2">
             <span className="text-[10px] text-fg-faint">#{account.counter}</span>
@@ -173,14 +156,7 @@ export const CellBody = memo(function CellBody({
           )}
         </div>
 
-        {isTotp && (
-          <div className="mt-2 h-[2px] w-full overflow-hidden rounded-full bg-border">
-            <div
-              className={`timer-bar h-full rounded-full ${!timerReady || remaining === period ? "timer-reset" : ""} ${isLow ? "bg-timer-low" : "bg-accent"}`}
-              style={{ transform: `scaleX(${progress})` }}
-            />
-          </div>
-        )}
+        {isTotp && <OtpCountdown key="compact" period={period} variant="compact" />}
 
         {!isTotp && (
           <div className="mt-2 flex items-center gap-1">
@@ -247,14 +223,7 @@ export const CellBody = memo(function CellBody({
         )}
       </div>
 
-      {isTotp && (
-        <div className="mt-3 h-[4px] w-full overflow-hidden rounded-full bg-border-soft">
-          <div
-            className={`timer-bar h-full rounded-full ${!timerReady || remaining === period ? "timer-reset" : ""} ${isLow ? "bg-timer-low" : "bg-accent"}`}
-            style={{ transform: `scaleX(${progress})` }}
-          />
-        </div>
-      )}
+      {isTotp && <OtpCountdown key="grid" period={period} variant="grid" />}
 
       {!isTotp && (
         <div className="mt-3 flex items-center gap-1">

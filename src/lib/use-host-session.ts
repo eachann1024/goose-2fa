@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { pauseOtpClock, resumeOtpClock } from "@/hooks/otp-clock";
 import type { PluginEnterDetail } from "@/platform/types";
 
 export function useHostTheme(syncSystemDark: (isDark: boolean) => void) {
@@ -28,6 +29,7 @@ export function usePluginSession(
   useEffect(() => {
     const handleEnter = (e: Event) => {
       const detail = (e as CustomEvent<PluginEnterDetail>).detail;
+      resumeOtpClock();
       load();
       if (detail?.code === "quick") {
         const raw = (detail?.payload ?? "").trim();
@@ -40,7 +42,10 @@ export function usePluginSession(
         setSearchQuery("");
       }
     };
-    const handleOut = () => setQuickMode(false);
+    const handleOut = () => {
+      pauseOtpClock();
+      setQuickMode(false);
+    };
     window.addEventListener("goose-2fa:plugin-enter", handleEnter);
     window.addEventListener("goose-2fa:plugin-out", handleOut);
     return () => {

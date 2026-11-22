@@ -1,4 +1,4 @@
-import { memo, useState, useCallback, useEffect, useRef } from "react";
+import { memo, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useOtpCode } from "@/hooks/useOtpCode";
@@ -53,11 +53,16 @@ export const CodeCell = memo(function CodeCell({
     },
   });
 
-  const style: React.CSSProperties = {
-    transform: CSS.Translate.toString(transform),
+  const transformCss = CSS.Translate.toString(transform);
+  const style = useMemo<React.CSSProperties>(() => ({
+    transform: transformCss,
     transition,
-    ...(isDragging ? { opacity: 0.4 } : {}),
-  };
+    opacity: isDragging ? 0.4 : undefined,
+  }), [transformCss, transition, isDragging]);
+  const activatorProps = useMemo(
+    () => sortable ? { ...attributes, ...listeners } : undefined,
+    [sortable, attributes, listeners],
+  );
 
   return (
     <LiveCodeCell
@@ -71,7 +76,7 @@ export const CodeCell = memo(function CodeCell({
       onToggleSelect={onToggleSelect}
       nodeRef={setNodeRef}
       activatorRef={setActivatorNodeRef}
-      activatorProps={sortable ? { ...attributes, ...listeners } : undefined}
+      activatorProps={activatorProps}
       style={style}
       isDragging={isDragging}
       isSorting={isSorting}
@@ -88,12 +93,12 @@ interface LiveCodeCellProps extends Omit<CodeCellProps, "sortable"> {
   isSorting: boolean;
 }
 
-function LiveCodeCell({
+const LiveCodeCell = memo(function LiveCodeCell({
   account, onCopy, onDetail, onIncrement, viewMode, nodeRef,
   activatorRef, activatorProps, style, isDragging, isSorting,
   selectionMode, selected, onToggleSelect,
 }: LiveCodeCellProps) {
-  const { code, remaining, period } = useOtpCode(account);
+  const code = useOtpCode(account);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -178,8 +183,6 @@ function LiveCodeCell({
         <CellBody
           account={account}
           code={code}
-          remaining={remaining}
-          period={period}
           copied={copied}
           copyError={copyError}
           viewMode={viewMode}
@@ -191,7 +194,7 @@ function LiveCodeCell({
       </CellShell>
     </AccountContextMenu>
   );
-}
+});
 
 /* ---------- 拖动浮层：跟手 + 放大 + 阴影 ---------- */
 
@@ -202,7 +205,7 @@ interface CodeCellOverlayProps {
 
 /** DragOverlay 内渲染的卡片副本：纯展示，带"被拎起"的放大与投影。 */
 export function CodeCellOverlay({ account, viewMode }: CodeCellOverlayProps) {
-  const { code, remaining, period } = useOtpCode(account);
+  const code = useOtpCode(account);
   return (
     <CellShell
       viewMode={viewMode}
@@ -213,8 +216,6 @@ export function CodeCellOverlay({ account, viewMode }: CodeCellOverlayProps) {
       <CellBody
         account={account}
         code={code}
-        remaining={remaining}
-        period={period}
         copied={false}
         viewMode={viewMode}
         overlay

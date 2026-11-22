@@ -83,13 +83,13 @@ export async function generateTOTP(
   period: number = 30,
   digits: number = 6,
   algorithm: string = "SHA-1",
+  nowSeconds: number = Math.floor(Date.now() / 1000),
 ): Promise<{ code: string; remaining: number }> {
   if (!Number.isSafeInteger(period) || period < 1 || period > 300) {
     throw new Error("Invalid TOTP period");
   }
-  const now = Math.floor(Date.now() / 1000);
-  const timeStep = Math.floor(now / period);
-  const remaining = period - (now % period);
+  const timeStep = Math.floor(nowSeconds / period);
+  const remaining = period - (nowSeconds % period);
   const code = await generateHOTP(secret, timeStep, digits, algorithm);
   return { code, remaining };
 }

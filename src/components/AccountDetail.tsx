@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { ArrowLeft, Check, Copy, KeyRound, QrCode, Trash2 } from "lucide-react";
 import { useOtpCode } from "@/hooks/useOtpCode";
-import { useTimerReady } from "@/hooks/useTimerReady";
+import { useOtpLow } from "@/hooks/otp-clock";
+import { OtpCountdown } from "./OtpCountdown";
 import { formatCode, generateHOTP, generateTOTP } from "@/lib/otp";
 import { trackCodeCopy } from "@/lib/analytics";
 import type { AccountData, VaultGroup } from "@/lib/types";
@@ -37,17 +38,16 @@ export function AccountDetail({
 }: AccountDetailProps) {
   const updateSecret = useAccounts((state) => state.updateSecret);
   const editable = useAccounts(canEditVault);
-  const { code, remaining, period } = useOtpCode(account);
+  const code = useOtpCode(account);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [shareMode, setShareMode] = useState<ShareMode | null>(null);
-  const barReady = useTimerReady(account.id);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const copyGenerationRef = useRef(0);
 
   const isTotp = account.type === "totp";
-  const isLow = isTotp && remaining <= 5;
-  const progress = isTotp ? remaining / period : 1;
+  const period = account.period || 30;
+  const isLow = useOtpLow(period, isTotp);
 
   const originalName = account.originalName
     || (account.issuer ? `${account.issuer} (${account.name})` : account.name);
@@ -236,16 +236,7 @@ export function AccountDetail({
       )}
 
       {/* 进度条 */}
-      {isTotp && (
-        <div className="mb-6 h-[4px] w-full overflow-hidden rounded-full bg-border-soft">
-          <div
-            className={`timer-bar h-full rounded-full ${
-              isLow ? "bg-timer-low" : "bg-accent"
-            } ${barReady && remaining !== period ? "" : "timer-reset"}`}
-            style={{ transform: `scaleX(${progress})` }}
-          />
-        </div>
-      )}
+      {isTotp && <OtpCountdown period={period} variant="detail" />}
 
       {!isTotp && (
         <div className="mb-6 flex items-center gap-1">

@@ -1,8 +1,9 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { CornerDownLeft, Search } from "lucide-react";
 import { usePlatform } from "@/platform/context";
 import { useOtpCode } from "@/hooks/useOtpCode";
-import { useTimerReady } from "@/hooks/useTimerReady";
+import { useOtpLow } from "@/hooks/otp-clock";
+import { OtpCountdown } from "./OtpCountdown";
 import { formatCode } from "@/lib/otp";
 import { filterAccounts } from "@/lib/search";
 import { trackCodeCopy } from "@/lib/analytics";
@@ -21,6 +22,17 @@ export function QuickCode({ accounts, initialQuery, onIncrement }: QuickCodeProp
   const [error, setError] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const pickingRef = useRef(false);
+  const pickTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    mounted.current = true;
+    pickingRef.current = false;
+    return () => {
+      mounted.current = false;
+      clearTimeout(pickTimer.current);
+    };
+  }, []);
 
   const filtered = useMemo(() => filterAccounts(accounts, query), [accounts, query]);
 
@@ -31,7 +43,7 @@ export function QuickCode({ accounts, initialQuery, onIncrement }: QuickCodeProp
     return () => platform.removeSubInput?.();
   }, [initialQuery, platform]);
 
-  const resultIds = filtered.map((account) => account.id).join(",");
+  const resultIds = useMemo(() => filtered.map((account) => account.id).join(","), [filtered]);
   useEffect(() => setSelectedIndex(0), [resultIds]);
 
   useEffect(() => {
@@ -49,7 +61,7 @@ export function QuickCode({ accounts, initialQuery, onIncrement }: QuickCodeProp
       if (account.type === "hotp") {
         const advanced = await onIncrement(account.id);
         if (advanced === false) {
-          setError("HOTP 计数器未能保存，已取消发送");
+          if (mounted.current) setError("HOTP 计数器未能保存，已取消发送");
           return;
         }
       }
@@ -61,37 +73,39 @@ export function QuickCode({ accounts, initialQuery, onIncrement }: QuickCodeProp
       }
       trackCodeCopy();
     } catch {
-      setError("未能粘贴或复制验证码，请重试");
+      if (mounted.current) setError("未能粘贴或复制验证码，请重试");
     } finally {
-      window.setTimeout(() => {
-        pickingRef.current = false;
-      }, 250);
+      if (mounted.current) {
+        pickTimer.current = setTimeout(() => { pickingRef.current = false; }, 250);
+      }
     }
   }, [onIncrement, platform]);
 
+  const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setSelectedIndex((index) => Math.min(index + 1, Math.max(filtered.length - 1, 0)));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setSelectedIndex((index) => Math.max(index - 1, 0));
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      const account = filtered[selectedIndex];
+      const code = listRef.current
+        ?.querySelector<HTMLElement>(`[data-row-index="${selectedIndex}"]`)
+        ?.dataset.code;
+      if (account && code) void pick(account, code);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      platform.outPlugin?.();
+    }
+  });
+
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        setSelectedIndex((index) => Math.min(index + 1, Math.max(filtered.length - 1, 0)));
-      } else if (event.key === "ArrowUp") {
-        event.preventDefault();
-        setSelectedIndex((index) => Math.max(index - 1, 0));
-      } else if (event.key === "Enter") {
-        event.preventDefault();
-        const account = filtered[selectedIndex];
-        const code = listRef.current
-          ?.querySelector<HTMLElement>(`[data-row-index="${selectedIndex}"]`)
-          ?.dataset.code;
-        if (account && code) void pick(account, code);
-      } else if (event.key === "Escape") {
-        event.preventDefault();
-        platform.outPlugin?.();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [filtered, pick, platform, selectedIndex]);
+    const listener = (event: KeyboardEvent) => handleKeyDown(event);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, []);
 
   if (accounts.length === 0) {
     return <QuickEmpty title="还没有账户" hint="输入“管理鹅的验证”添加账户" />;
@@ -145,10 +159,10 @@ const QuickRow = memo(function QuickRow({
   onHover: (index: number) => void;
   onPick: (account: AccountData, code: string) => Promise<void>;
 }) {
-  const { code, remaining, period } = useOtpCode(account);
-  const timerReady = useTimerReady(account.id);
-  const isLow = account.type === "totp" && remaining <= 5;
-  const progress = account.type === "totp" ? Math.max(0, Math.min(1, remaining / period)) : 1;
+  const code = useOtpCode(account);
+  const isTotp = account.type === "totp";
+  const period = account.period || 30;
+  const isLow = useOtpLow(period, isTotp);
   const displayName = account.note || (account.issuer || account.name);
   const initial = displayName.trim().charAt(0).toUpperCase();
 
@@ -173,11 +187,8 @@ const QuickRow = memo(function QuickRow({
       <span className={`font-mono text-[22px] font-semibold tracking-[0.06em] ${isLow ? "text-timer-low" : selected ? "text-accent" : "text-fg"}`}>
         {formatCode(code)}
       </span>
-      {account.type === "totp" ? (
-        <svg width="16" height="16" viewBox="0 0 16 16" aria-label={`剩余 ${Math.ceil(remaining)} 秒`}>
-          <circle cx="8" cy="8" r="6.5" fill="none" stroke="var(--color-border)" strokeWidth="2" />
-          <circle className={`timer-ring ${!timerReady || remaining === period ? "timer-reset" : ""}`} cx="8" cy="8" r="6.5" fill="none" stroke={isLow ? "var(--color-timer-low)" : "var(--color-accent)"} strokeWidth="2" strokeLinecap="round" strokeDasharray={2 * Math.PI * 6.5} style={{ strokeDashoffset: 2 * Math.PI * 6.5 * (1 - progress) }} transform="rotate(-90 8 8)" />
-        </svg>
+      {isTotp ? (
+        <OtpCountdown period={period} variant="quick" />
       ) : (
         <span className="text-[10px] text-fg-faint">#{account.counter}</span>
       )}

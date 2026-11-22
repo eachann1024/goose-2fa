@@ -25,49 +25,26 @@ export default function App() {
   const accounts = useAccounts((s) => s.accounts);
   const trash = useAccounts((s) => s.trash);
   const groups = useAccounts((s) => s.groups);
-  const searchQuery = useAccounts((s) => s.searchQuery);
   const notice = useAccounts((s) => s.notice);
   const editMode = useAccounts((s) => s.editMode);
-  const setEditMode = useAccounts((s) => s.setEditMode);
-  const setNotice = useAccounts((s) => s.setNotice);
   const showAddForm = useAccounts((s) => s.showAddForm);
   const showDataTransfer = useAccounts((s) => s.showDataTransfer);
   const showTrash = useAccounts((s) => s.showTrash);
   const isDark = useAccounts((s) => s.isDark);
   const isThemeLocked = useAccounts((s) => s.isThemeLocked);
   const viewMode = useAccounts((s) => s.viewMode);
-  const setViewMode = useAccounts((s) => s.setViewMode);
   const selectedGroup = useAccounts((s) => s.selectedGroup);
   const groupOrder = useAccounts((s) => s.groupOrder);
-  const setSelectedGroup = useAccounts((s) => s.setSelectedGroup);
   const accentColor = useAccounts((s) => s.accentColor);
   const loadStatus = useAccounts((s) => s.loadStatus);
   const loadError = useAccounts((s) => s.loadError);
-  const setAccentColor = useAccounts((s) => s.setAccentColor);
-  const reorderAccounts = useAccounts((s) => s.reorderAccounts);
-  const reorderGroups = useAccounts((s) => s.reorderGroups);
-  const load = useAccounts((s) => s.load);
-  const addAccount = useAccounts((s) => s.addAccount);
-  const importAccounts = useAccounts((s) => s.importAccounts);
-  const removeAccount = useAccounts((s) => s.removeAccount);
-  const restoreAccount = useAccounts((s) => s.restoreAccount);
-  const permanentlyDelete = useAccounts((s) => s.permanentlyDelete);
-  const emptyTrash = useAccounts((s) => s.emptyTrash);
-  const updateNote = useAccounts((s) => s.updateNote);
-  const updateRemark = useAccounts((s) => s.updateRemark);
-  const updateAccountGroup = useAccounts((s) => s.updateAccountGroup);
-  const createGroup = useAccounts((s) => s.createGroup);
-  const renameGroup = useAccounts((s) => s.renameGroup);
-  const deleteGroup = useAccounts((s) => s.deleteGroup);
-  const incrementCounter = useAccounts((s) => s.incrementCounter);
-  const removeAccounts = useAccounts((s) => s.removeAccounts);
-  const moveAccounts = useAccounts((s) => s.moveAccounts);
-  const setSearchQuery = useAccounts((s) => s.setSearchQuery);
-  const setShowAddForm = useAccounts((s) => s.setShowAddForm);
-  const setShowDataTransfer = useAccounts((s) => s.setShowDataTransfer);
-  const setShowTrash = useAccounts((s) => s.setShowTrash);
-  const setThemeMode = useAccounts((s) => s.setThemeMode);
-  const syncSystemDark = useAccounts((s) => s.syncSystemDark);
+  const {
+    setEditMode, setNotice, setViewMode, setSelectedGroup, setAccentColor,
+    reorderAccounts, reorderGroups, load, addAccount, importAccounts, removeAccount,
+    restoreAccount, permanentlyDelete, emptyTrash, updateNote, updateRemark, updateAccountGroup,
+    createGroup, renameGroup, deleteGroup, incrementCounter, removeAccounts, moveAccounts,
+    setSearchQuery, setShowAddForm, setShowDataTransfer, setShowTrash, setThemeMode, syncSystemDark,
+  } = useAccounts.getState();
 
   const [addFormAction, setAddFormAction] = useState<"clipboard" | "capture" | undefined>();
   const [detailAccount, setDetailAccount] = useState<AccountData | null>(null);
@@ -118,6 +95,7 @@ export default function App() {
   }, []);
 
   const dismissNotice = useCallback(() => setNotice(null), [setNotice]);
+  const exitBatch = useCallback(() => setEditMode(false), [setEditMode]);
   const handleCopy = useCallback((_text: string) => {}, []);
   const handleAdd = useCallback(() => { setAddFormAction(undefined); setShowAddForm(true); }, [setShowAddForm]);
   const handleClipboardImport = useCallback(() => { setAddFormAction("clipboard"); setShowAddForm(true); }, [setShowAddForm]);
@@ -219,7 +197,6 @@ export default function App() {
         <div className="flex min-h-0 flex-1 flex-col">
           <Header
             hasAccounts={accounts.length > 0}
-            searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
@@ -239,7 +216,6 @@ export default function App() {
           <CodeGrid
             accounts={accounts}
             groups={groups}
-            searchQuery={searchQuery}
             viewMode={viewMode}
             selectedGroup={selectedGroup}
             groupOrder={groupOrder}
@@ -257,7 +233,7 @@ export default function App() {
             onClipboardImport={handleClipboardImport}
             onScreenCapture={handleScreenCapture}
             batchMode={editMode}
-            onExitBatch={() => setEditMode(false)}
+            onExitBatch={exitBatch}
             onRemoveMany={removeAccounts}
             onMoveMany={moveAccounts}
           />

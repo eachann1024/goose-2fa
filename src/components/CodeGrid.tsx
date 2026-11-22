@@ -21,12 +21,14 @@ import {
 } from "@/lib/groups";
 import { filterAccounts } from "@/lib/search";
 import type { AccountData, VaultGroup } from "@/lib/types";
-import type { ViewMode } from "@/stores/useAccounts";
+import { useAccounts, type ViewMode } from "@/stores/useAccounts";
+
+const dragModifiers = [groupAxisModifier];
+const dragAccessibility = { restoreFocus: false };
 
 interface CodeGridProps {
   accounts: AccountData[];
   groups: VaultGroup[];
-  searchQuery: string;
   viewMode: ViewMode;
   selectedGroup: string | null;
   groupOrder?: string[];
@@ -52,7 +54,6 @@ interface CodeGridProps {
 export const CodeGrid = memo(function CodeGrid({
   accounts,
   groups,
-  searchQuery,
   viewMode,
   selectedGroup,
   groupOrder,
@@ -75,6 +76,7 @@ export const CodeGrid = memo(function CodeGrid({
   onMoveMany,
 }: CodeGridProps) {
   const platform = usePlatform();
+  const searchQuery = useAccounts((state) => state.searchQuery);
   const allIds = useMemo(() => accounts.map((account) => account.id), [accounts]);
   const { selectedIds, toggle, toggleAll } = useBatchSelection(Boolean(batchMode), allIds);
   const allSelected = accounts.length > 0 && selectedIds.size === accounts.length;
@@ -163,8 +165,8 @@ export const CodeGrid = memo(function CodeGrid({
       <DndContext
         sensors={drag.sensors}
         collisionDetection={groupAwareCollision}
-        modifiers={[groupAxisModifier]}
-        accessibility={{ restoreFocus: false }}
+        modifiers={dragModifiers}
+        accessibility={dragAccessibility}
         onDragStart={drag.handleDragStart}
         onDragEnd={drag.handleDragEnd}
         onDragCancel={drag.handleDragCancel}
