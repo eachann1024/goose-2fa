@@ -21,7 +21,8 @@ https://github.com/user-attachments/assets/5ab572b6-5c74-4549-a24a-26cbcf7d3be2
 
 - 这是 uTools 插件。取码即贴要在 uTools 里用，视频里没有录这一段。
 - MCP 只有两个工具：查看摘要、检索账户元数据。它读你手动导出的备份文件，不读实时数据，不能取码，不能写入。
-- 界面写着“数据加密存储”，但代码里还没有加密：账户以明文存在 uTools 数据库或浏览器本地，加密还在做。
+- 界面已移除未实现的「数据加密存储」表述：当前账户以明文存在 uTools 数据库或浏览器本地，加密还在做。
+- 联网说明：账户密钥与验证码仅保存在本地，不会上传；仅在匿名使用统计与意见反馈（`feedback-api.cooool.top`）、检查更新通知（`raw.githubusercontent.com`、`cdn.jsdelivr.net`、`gcore.jsdelivr.net`）时联网，统计可在「隐私与统计」中关闭。
 
 ## 同系列
 

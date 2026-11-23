@@ -90,25 +90,24 @@ try {
     process.exit(1);
   }
 
-  function removeMapFiles(dir) {
+  function cleanBuildArtifacts(dir, removeMaps) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        removeMapFiles(full);
-      } else if (entry.name.endsWith(".map")) {
+        cleanBuildArtifacts(full, removeMaps);
+      } else if (entry.name === ".DS_Store" || (removeMaps && entry.name.endsWith(".map"))) {
         fs.unlinkSync(full);
       }
     }
   }
 
   // GOOSE_DEBUG=1：保留 .map，让 uTools 开发者工具能映射回 src/ 源码；
-  // 正式发布：删除 .map，避免分发包体积膨胀与源码暴露。
+  // 正式发布：删除 .map，避免分发包体积膨胀与源码暴露；始终清理 .DS_Store。
   const isDebugBuild = process.env.GOOSE_DEBUG === "1";
   if (isDebugBuild) {
-    console.log("\n⚙ GOOSE_DEBUG=1：保留 sourcemap(.map)，跳过 removeMapFiles()");
-  } else {
-    removeMapFiles(distDir);
+    console.log("\n⚙ GOOSE_DEBUG=1：保留 sourcemap(.map)，仅清理 .DS_Store");
   }
+  cleanBuildArtifacts(distDir, !isDebugBuild);
 
   console.log(
     `\n✓ uTools ${isDebugBuild ? "可调试" : ""}构建完成 → ${path.relative(rootDir, distDir)}/`,

@@ -62,6 +62,10 @@ export function PrivacyDialog({ onClose }: { onClose: () => void }) {
           </Switch.Root>
         </div>
 
+        <p className="text-[11.5px] leading-relaxed text-fg-muted">
+          联网说明：匿名统计与意见反馈连接 feedback-api.cooool.top；更新通知拉取自 raw.githubusercontent.com 与 jsdelivr.net；账户密钥与验证码仅保存在本地。
+        </p>
+
         <div className="flex items-center justify-end">
           <Button
             type="button"

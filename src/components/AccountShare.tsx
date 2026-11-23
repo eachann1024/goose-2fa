@@ -24,7 +24,7 @@ interface AccountShareProps {
 export function AccountShare({ account, open, editable = true, onClose, onCopy, onUpdateSecret }: AccountShareProps) {
   const platform = usePlatform();
   const uri = accountToOtpAuthUri(account);
-  const [svg, setSvg] = useState("");
+  const [qrDataUrl, setQrDataUrl] = useState("");
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [draft, setDraft] = useState(account.secret);
@@ -65,15 +65,15 @@ export function AccountShare({ account, open, editable = true, onClose, onCopy, 
 
   useEffect(() => {
     if (open !== "qr") return;
-    setSvg("");
+    setQrDataUrl("");
     let active = true;
-    void QRCode.toString(uri, {
-      type: "svg",
+    void QRCode.toDataURL(uri, {
+      width: 440,
       margin: 1,
       errorCorrectionLevel: "M",
       color: { dark: "#111111", light: "#ffffff" },
-    }).then((markup) => {
-      if (active) setSvg(markup);
+    }).then((url) => {
+      if (active) setQrDataUrl(url);
     });
     return () => {
       active = false;
@@ -155,10 +155,9 @@ export function AccountShare({ account, open, editable = true, onClose, onCopy, 
         </div>
 
         {open === "qr" ? (
-          <div
-            className="mx-auto aspect-square w-[220px] max-w-full overflow-hidden rounded-lg bg-white p-2 [&_svg]:h-auto [&_svg]:w-full"
-            dangerouslySetInnerHTML={{ __html: svg }}
-          />
+          <div className="mx-auto aspect-square w-[220px] max-w-full overflow-hidden rounded-lg bg-white p-2">
+            {qrDataUrl ? <img src={qrDataUrl} alt="账户二维码" className="h-full w-full" /> : null}
+          </div>
         ) : (<>
           <div className="group relative">
             <textarea

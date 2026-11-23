@@ -38,6 +38,9 @@ try {
     const entries = await readdir(path.join(distDir, relative), { withFileTypes: true });
     for (const entry of entries) {
       const filename = path.posix.join(relative, entry.name);
+      if (entry.name === ".DS_Store") {
+        throw new Error(`插件包包含禁止残留文件：${filename}`);
+      }
       if (entry.isDirectory()) {
         await verifyResources(filename);
       } else {

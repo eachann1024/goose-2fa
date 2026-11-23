@@ -8,12 +8,17 @@ const vm = require("node:vm");
 function loadBridge(rename, overrides = {}) {
   const source = fs.readFileSync(path.join(__dirname, "preload.cjs"), "utf8");
   const realFs = require("node:fs");
+  const store = new Map([["goose-2fa-accounts", "[]"], ["goose-2fa-groups", "[]"]]);
   const utools = {
     dbStorage: {
-      getItem: () => "[]",
-      setItem: () => true,
+      getItem: (key) => (store.has(key) ? store.get(key) : null),
+      setItem: (key, value) => {
+        store.set(key, value);
+        return true;
+      },
     },
     showSaveDialog: () => null,
+    showOpenDialog: () => null,
     onPluginEnter: () => {},
     ...overrides,
   };
@@ -34,6 +39,17 @@ function loadBridge(rename, overrides = {}) {
   return context.window.goose2fa;
 }
 
+function authorizeFile(bridge, overrides, filePath) {
+  let authorized = null;
+  const authBridge = loadBridge(undefined, {
+    ...overrides,
+    showOpenDialog: () => [filePath],
+  });
+  authorized = authBridge.selectSyncPath("existing");
+  assert.equal(authorized, filePath);
+  return authBridge;
+}
+
 describe("uTools 自动同步桥接文件读取", () => {
   it("区分缺失、目录、超限与非绝对路径，正常文件返回内容与 mtime", () => {
     const directory = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "goose-2fa-read-")));
@@ -41,8 +57,13 @@ describe("uTools 自动同步桥接文件读取", () => {
     fs.writeFileSync(target, '{"app":"goose-2fa"}', { mode: 0o600 });
     const big = path.join(directory, "big.json");
     fs.writeFileSync(big, "x".repeat(5 * 1024 * 1024 + 1));
+    const missing = path.join(directory, "missing.json");
     try {
-      const bridge = loadBridge();
+      let nextSelection = target;
+      const bridge = loadBridge(undefined, {
+        showOpenDialog: () => [nextSelection],
+      });
+      assert.equal(bridge.selectSyncPath("existing"), target);
       const ok = bridge.readSyncFile(target);
       assert.equal(ok.ok, true);
       assert.equal(ok.content, '{"app":"goose-2fa"}');
@@ -53,9 +74,13 @@ describe("uTools 自动同步桥接文件读取", () => {
         assert.equal(result.ok, false);
         return result.reason;
       };
-      assert.equal(reason(path.join(directory, "missing.json")), "missing");
-      assert.equal(reason(directory), "unreadable");
+      nextSelection = missing;
+      assert.equal(bridge.selectSyncPath("existing"), missing);
+      assert.equal(reason(missing), "missing");
+      nextSelection = big;
+      assert.equal(bridge.selectSyncPath("existing"), big);
       assert.equal(reason(big), "too-large");
+      assert.equal(reason(directory), "unreadable");
       assert.equal(reason("relative.json"), "unreadable");
     } finally {
       fs.rmSync(directory, { recursive: true, force: true });
@@ -70,7 +95,7 @@ describe("uTools 自动同步桥接文件写入", () => {
     const lockPath = `${target}.lock`;
     fs.writeFileSync(target, "old", { mode: 0o600 });
     try {
-      const bridge = loadBridge();
+      const bridge = authorizeFile(null, {}, target);
       assert.equal(bridge.writeSyncFile("relative.json", "bad", lockPath, null).ok, false);
       assert.equal(bridge.writeSyncFile(target, "bad", lockPath, null, true).reason, "conflict");
       assert.equal(fs.readFileSync(target, "utf8"), "old");
@@ -83,7 +108,10 @@ describe("uTools 自动同步桥接文件写入", () => {
       assert.deepEqual(fs.readdirSync(directory), ["sync.json"]);
 
       fs.writeFileSync(target, "old", { mode: 0o600 });
-      const failing = loadBridge(() => { throw new Error("rename failed"); });
+      const failing = loadBridge(() => { throw new Error("rename failed"); }, {
+        showOpenDialog: () => [target],
+      });
+      assert.equal(failing.selectSyncPath("existing"), target);
       assert.equal(failing.writeSyncFile(target, "should-not-replace", lockPath, null).ok, false);
       assert.equal(fs.readFileSync(target, "utf8"), "old");
       assert.deepEqual(fs.readdirSync(directory), ["sync.json"]);
@@ -100,7 +128,7 @@ describe("uTools 自动同步桥接文件写入", () => {
     const lockPath = `${file}.lock`;
     fs.writeFileSync(file, "old", { mode: 0o600 });
     try {
-      const bridge = loadBridge();
+      const bridge = authorizeFile(null, {}, file);
       fs.writeFileSync(lockPath, `4242\n1700000000000\n`, { mode: 0o600 });
       const blocked = bridge.writeSyncFile(file, "blocked", lockPath, null);
       assert.equal(blocked.ok, false);
@@ -131,9 +159,14 @@ describe("uTools 自动同步桥接文件写入", () => {
   it("锁内按 expectedContent 逐字节比对，mtime 相同也不算同一版本", () => {
     const directory = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "goose-2fa-cas-")));
     const file = path.join(directory, "sync.json");
+    const gone = path.join(directory, "gone.json");
     fs.writeFileSync(file, "old", { mode: 0o600 });
     try {
-      const bridge = loadBridge();
+      let nextSelection = file;
+      const bridge = loadBridge(undefined, {
+        showOpenDialog: () => [nextSelection],
+      });
+      assert.equal(bridge.selectSyncPath("existing"), file);
       const lockPath = `${file}.lock`;
       const mtime = fs.statSync(file).mtimeMs;
       // 外部改成同长度内容且 mtime 被刻意保留：stat 看不出来，内容比对必须拦住
@@ -146,7 +179,9 @@ describe("uTools 自动同步桥接文件写入", () => {
       assert.equal(fs.readFileSync(file, "utf8"), "new");
 
       // 基线文件不存在时也必须拒绝，不能把缺失当空内容
-      assert.equal(bridge.writeSyncFile(path.join(directory, "gone.json"), "new", `${path.join(directory, "gone.json")}.lock`, "old").reason, "conflict");
+      nextSelection = gone;
+      assert.equal(bridge.selectSyncPath("existing"), gone);
+      assert.equal(bridge.writeSyncFile(gone, "new", `${gone}.lock`, "old").reason, "conflict");
     } finally {
       fs.rmSync(directory, { recursive: true, force: true });
     }
@@ -159,7 +194,7 @@ describe("uTools 自动同步桥接文件写入", () => {
     fs.writeFileSync(file, "old", { mode: 0o600 });
     fs.symlinkSync(file, alias);
     try {
-      const bridge = loadBridge();
+      const bridge = authorizeFile(null, {}, file);
       assert.equal(bridge.resolveSyncPath(alias), file);
       assert.equal(bridge.resolveSyncPath(file), file);
       // 缺失文件的父目录同样解析到真实目录
@@ -172,6 +207,32 @@ describe("uTools 自动同步桥接文件写入", () => {
       assert.equal(bridge.readSyncFile(file).content, "old");
       assert.equal(bridge.writeSyncFile(file, "new", `${file}.lock`, null).ok, true);
       assert.equal(fs.readFileSync(file, "utf8"), "new");
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("拒绝未授权路径读写及不匹配的锁路径清理", () => {
+    const directory = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "goose-2fa-auth-")));
+    const authorized = path.join(directory, "authorized.json");
+    const unauthorized = path.join(directory, "secret.txt");
+    const unauthorizedLock = `${unauthorized}.lock`;
+    const otherTarget = path.join(directory, "other.txt");
+    fs.writeFileSync(authorized, "ok", { mode: 0o600 });
+    fs.writeFileSync(unauthorized, "top-secret", { mode: 0o600 });
+    fs.writeFileSync(unauthorizedLock, "keep", { mode: 0o600 });
+    fs.writeFileSync(otherTarget, "keep", { mode: 0o600 });
+    try {
+      const bridge = authorizeFile(null, {}, authorized);
+      assert.equal(bridge.readSyncFile(unauthorized).ok, false);
+      assert.equal(bridge.writeSyncFile(unauthorized, "hacked", unauthorizedLock, null).ok, false);
+      assert.equal(fs.readFileSync(unauthorized, "utf8"), "top-secret");
+
+      assert.equal(bridge.writeSyncFile(authorized, "bad", otherTarget, null).reason, "invalid");
+      assert.equal(bridge.clearSyncLock(unauthorizedLock), false);
+      assert.equal(bridge.clearSyncLock(otherTarget), false);
+      assert.equal(fs.existsSync(unauthorizedLock), true);
+      assert.equal(fs.existsSync(otherTarget), true);
     } finally {
       fs.rmSync(directory, { recursive: true, force: true });
     }

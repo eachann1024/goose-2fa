@@ -89,7 +89,7 @@ export function EmptyState({ onAdd, onClipboardImport, onScreenCapture }: EmptyS
 
       {/* Subtle footer hint */}
       <p className="mt-4 text-center text-[11px] leading-relaxed text-fg-faint">
-        所有数据加密存储在本地，不会上传到任何服务器
+        账户密钥仅保存在本地，不会上传到服务器
       </p>
     </div>
   );

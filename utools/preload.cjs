@@ -161,6 +161,44 @@ if (typeof window !== "undefined" && typeof utools !== "undefined") {
     }
   };
 
+  const AUTHORIZED_SYNC_PATHS_KEY = "goose-2fa-authorized-sync-paths";
+  let authorizedSyncPaths = null;
+
+  const loadAuthorizedSyncPaths = () => {
+    if (authorizedSyncPaths) return authorizedSyncPaths;
+    const paths = new Set();
+    try {
+      const raw = utools?.dbStorage?.getItem?.(AUTHORIZED_SYNC_PATHS_KEY);
+      const list = typeof raw === "string" ? JSON.parse(raw) : raw;
+      if (Array.isArray(list)) {
+        for (const item of list) {
+          if (typeof item === "string" && item) paths.add(item);
+        }
+      }
+    } catch {}
+    authorizedSyncPaths = paths;
+    return paths;
+  };
+
+  const authorizeSyncPath = (resolvedPath) => {
+    if (typeof resolvedPath !== "string" || !resolvedPath) return;
+    const paths = loadAuthorizedSyncPaths();
+    paths.add(resolvedPath);
+    const list = Array.from(paths).slice(-20);
+    authorizedSyncPaths = new Set(list);
+    try {
+      utools?.dbStorage?.setItem?.(AUTHORIZED_SYNC_PATHS_KEY, JSON.stringify(list));
+    } catch {}
+  };
+
+  const isAuthorizedSyncPath = (filePath) => {
+    const path = require("path");
+    if (typeof filePath !== "string" || !path.isAbsolute(filePath)) return false;
+    if (resolveSyncPath(filePath) !== filePath) return false;
+    if (filePath === getDefaultSyncPath()) return true;
+    return loadAuthorizedSyncPaths().has(filePath);
+  };
+
   const getDefaultSyncPath = () => {
     const path = require("path");
     let documents;
@@ -180,7 +218,11 @@ if (typeof window !== "undefined" && typeof utools !== "undefined") {
           filters: [{ name: "JSON 文件", extensions: ["json"] }],
           properties: ["openFile"],
         });
-        return files?.[0] || null;
+        const picked = files?.[0] || null;
+        if (!picked) return null;
+        const resolved = resolveSyncPath(picked);
+        authorizeSyncPath(resolved);
+        return resolved;
       }
       const filePath = utools.showSaveDialog({
         title: "新建数据源文件",
@@ -192,7 +234,10 @@ if (typeof window !== "undefined" && typeof utools !== "undefined") {
         utools.showNotification?.("该文件已经存在，请使用「选择已有文件」");
         return null;
       }
-      return filePath || null;
+      if (!filePath) return null;
+      const resolved = resolveSyncPath(filePath);
+      authorizeSyncPath(resolved);
+      return resolved;
     } catch (err) {
       console.error("[goose-2fa] select sync path failed:", err);
       return null;
@@ -208,6 +253,7 @@ if (typeof window !== "undefined" && typeof utools !== "undefined") {
       }
       // 真实路径守卫：别名路径会给自己一把新锁，宁可拒绝也不能出现两个写入端。
       if (resolveSyncPath(filePath) !== filePath) return { ok: false, reason: "unresolved" };
+      if (!isAuthorizedSyncPath(filePath)) return { ok: false, reason: "unreadable" };
       let stats;
       try {
         stats = fs.statSync(filePath);
@@ -260,12 +306,17 @@ if (typeof window !== "undefined" && typeof utools !== "undefined") {
     }
   };
 
-  /** 用户显式清理残留锁；这里只删锁文件，不代替用户重试写入。 */
+  /** 用户显式清理残留锁；这里只删已授权数据源对应的 .lock 文件，不代替用户重试写入。 */
   const clearSyncLock = (lockPath) => {
     try {
       const fs = require("fs");
       const path = require("path");
-      if (typeof lockPath !== "string" || !path.isAbsolute(lockPath)) return false;
+      if (typeof lockPath !== "string" || !path.isAbsolute(lockPath) || !lockPath.endsWith(".lock")) {
+        return false;
+      }
+      const targetPath = lockPath.slice(0, -".lock".length);
+      if (!isAuthorizedSyncPath(targetPath)) return false;
+      if (resolveSyncPath(lockPath) !== lockPath) return false;
       fs.unlinkSync(lockPath);
       return true;
     } catch (err) {
@@ -319,8 +370,11 @@ if (typeof window !== "undefined" && typeof utools !== "undefined") {
       }
       // 真实路径守卫：别名路径会给自己一把新锁，宁可拒绝也不能出现两个写入端。
       if (resolveSyncPath(filePath) !== filePath) return { ok: false, reason: "unresolved" };
+      if (!isAuthorizedSyncPath(filePath)) return { ok: false, reason: "invalid" };
       if (typeof lockPath === "string" && lockPath) {
-        if (!path.isAbsolute(lockPath)) return { ok: false, reason: "invalid" };
+        if (!path.isAbsolute(lockPath) || lockPath !== `${filePath}.lock`) {
+          return { ok: false, reason: "invalid" };
+        }
         if (!acquireSyncLock(lockPath)) {
           return { ok: false, reason: "locked", lockContent: readSyncLock(lockPath) };
         }
