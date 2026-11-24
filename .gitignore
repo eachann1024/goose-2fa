@@ -17,3 +17,14 @@ test-results/
 pnpm-lock.yaml
 
 未命名/
+
+# Added by maotou cleanup
+tmp/
+.cache/
+*.log
+*.tmp
+*.dump
+*.har
+debug*
+*.debug
+*.trace
